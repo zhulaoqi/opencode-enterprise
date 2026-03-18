@@ -18,6 +18,7 @@ export async function create(
   input: { user_id: string; title?: string; mcp_snapshot?: unknown; system_prompt?: string },
 ): Promise<Session> {
   const [session] = await db.insert(enterprise_session).values(input).returning()
+  if (!session) throw new Error("session create failed")
   return session
 }
 
@@ -55,6 +56,7 @@ export async function addMessage(
     .insert(enterprise_message)
     .values(input as any)
     .returning()
+  if (!msg) throw new Error("message insert failed")
   await cache.invalidate(input.session_id)
   return msg
 }
@@ -77,6 +79,7 @@ export async function logTool(
     .insert(enterprise_tool_log)
     .values(input as any)
     .returning()
+  if (!log) throw new Error("tool log insert failed")
   return log
 }
 

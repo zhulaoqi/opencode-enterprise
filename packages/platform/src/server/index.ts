@@ -5,6 +5,7 @@ import { health } from "./routes/health"
 import { auth } from "./routes/auth"
 import { sessions } from "./routes/session"
 import { admin } from "./routes/admin"
+import { mcpRoutes } from "./routes/mcp"
 
 export function server() {
   const app = new Hono()
@@ -14,6 +15,7 @@ export function server() {
     .route("/api/auth", auth)
     .route("/api/sessions", sessions)
     .route("/api/admin", admin)
+    .route("/api/mcp", mcpRoutes)
 
   return app
 }

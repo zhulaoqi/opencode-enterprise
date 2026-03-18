@@ -45,6 +45,7 @@ export async function upsertFromFeishu(
       })
       .where(eq(identity_mapping.feishu_user_id, input.feishu_user_id))
       .returning()
+    if (!updated) throw new Error("identity update failed")
     return updated
   }
   const [created] = await db
@@ -60,6 +61,7 @@ export async function upsertFromFeishu(
       last_sync_at: new Date(),
     })
     .returning()
+  if (!created) throw new Error("identity insert failed")
   return created
 }
 

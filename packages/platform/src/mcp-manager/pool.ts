@@ -19,7 +19,7 @@ export async function acquire(name: string, config: any): Promise<Client> {
   }
 
   const client = new Client({ name: `enterprise-${name}`, version: "1.0.0" }, {})
-  let transport: InstanceType<typeof StdioClientTransport>
+  let transport: InstanceType<typeof StdioClientTransport> | InstanceType<typeof StreamableHTTPClientTransport> | InstanceType<typeof SSEClientTransport>
 
   if (config.type === "stdio") {
     const [cmd, ...args] = config.command ?? []

@@ -52,6 +52,24 @@ export async function seed(db: Database) {
   }
 }
 
+export async function userRoleNames(db: Database, userId: string, deptIds: string[]): Promise<string[]> {
+  const userRoles = await db.select({ role_id: user_role.role_id }).from(user_role).where(eq(user_role.user_id, userId))
+
+  const deptRoles =
+    deptIds.length > 0
+      ? await db
+          .select({ role_id: department_role.role_id })
+          .from(department_role)
+          .where(inArray(department_role.department_id, deptIds))
+      : []
+
+  const ids = [...new Set([...userRoles, ...deptRoles].map((r) => r.role_id))]
+  if (ids.length === 0) return []
+
+  const roles = await db.select({ name: role.name }).from(role).where(inArray(role.id, ids))
+  return roles.map((r) => r.name)
+}
+
 export async function userPermissions(db: Database, userId: string, deptIds: string[]): Promise<RolePermission[]> {
   const userRoles = await db.select({ role_id: user_role.role_id }).from(user_role).where(eq(user_role.user_id, userId))
 
