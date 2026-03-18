@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { and, eq, ilike, or } from "drizzle-orm"
 import { identity_mapping } from "./identity.sql"
 import type { Database } from "@/db"
 
@@ -65,9 +65,18 @@ export async function upsertFromFeishu(
   return created
 }
 
-export function list(db: Database, opts?: { status?: string; limit?: number; offset?: number }) {
+export function list(
+  db: Database,
+  opts?: { status?: string; search?: string; limit?: number; offset?: number },
+) {
   let query = db.select().from(identity_mapping)
-  if (opts?.status) query = query.where(eq(identity_mapping.status, opts.status)) as any
+  const conds = []
+  if (opts?.status) conds.push(eq(identity_mapping.status, opts.status))
+  if (opts?.search?.trim()) {
+    const s = `%${opts.search.trim()}%`
+    conds.push(or(ilike(identity_mapping.name, s), ilike(identity_mapping.email, s), ilike(identity_mapping.employee_id, s))!)
+  }
+  if (conds.length > 0) query = query.where(and(...conds)) as any
   if (opts?.limit) query = query.limit(opts.limit) as any
   if (opts?.offset) query = query.offset(opts.offset) as any
   return query
