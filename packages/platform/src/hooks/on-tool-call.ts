@@ -1,4 +1,5 @@
-// Called when a tool is invoked — for audit logging and circuit breaker tracking
+import * as circuitBreaker from "@/billing/circuit-breaker"
+
 export async function onToolCall(input: {
   sessionID: string
   userId?: string
@@ -6,5 +7,6 @@ export async function onToolCall(input: {
   callID: string
   input: unknown
 }) {
-  // TODO: wire to billing audit + circuit breaker
+  const mcpName = input.tool.split("_")[0] ?? "unknown"
+  await circuitBreaker.recordCall(mcpName)
 }

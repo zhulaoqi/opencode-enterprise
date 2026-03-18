@@ -68,7 +68,7 @@ const defaults: Record<string, RateLimitConfig> = {
 }
 
 export function configForRole(roles: string[]): RateLimitConfig {
-  if (roles.includes("admin")) return defaults.admin
-  if (roles.includes("manager")) return defaults.manager
-  return defaults.default
+  if (roles.includes("admin")) return defaults.admin!
+  if (roles.includes("manager")) return defaults.manager!
+  return defaults.default!
 }

@@ -6,6 +6,8 @@ import { auth } from "./routes/auth"
 import { sessions } from "./routes/session"
 import { admin } from "./routes/admin"
 import { mcpRoutes } from "./routes/mcp"
+import { billingRoutes } from "./routes/billing"
+import { dashboardRoutes } from "./routes/dashboard"
 
 export function server() {
   const app = new Hono()
@@ -16,6 +18,8 @@ export function server() {
     .route("/api/sessions", sessions)
     .route("/api/admin", admin)
     .route("/api/mcp", mcpRoutes)
+    .route("/api/billing", billingRoutes)
+    .route("/api/dashboard", dashboardRoutes)
 
   return app
 }
