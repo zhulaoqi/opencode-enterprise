@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run src/index.ts",
+    "worker": "bun run src/worker/runner.ts",
     "typecheck": "bun x tsgo --noEmit",
     "test": "bun test",
     "db": "bun drizzle-kit"
