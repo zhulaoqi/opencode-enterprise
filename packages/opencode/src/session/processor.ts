@@ -16,6 +16,7 @@ import { PermissionNext } from "@/permission"
 import { Question } from "@/question"
 import { PartID } from "./schema"
 import type { SessionID, MessageID } from "./schema"
+import { SessionHooks } from "./hooks"
 
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
@@ -176,6 +177,12 @@ export namespace SessionProcessor {
                       })
                     }
                   }
+                  SessionHooks.runOnToolCall({
+                    sessionID: input.sessionID,
+                    tool: value.toolName,
+                    callID: value.toolCallId,
+                    input: value.input,
+                  }).catch(() => {})
                   break
                 }
                 case "tool-result": {
@@ -197,6 +204,13 @@ export namespace SessionProcessor {
                       },
                     })
 
+                    SessionHooks.runOnToolResult({
+                      sessionID: input.sessionID,
+                      tool: match.tool,
+                      callID: value.toolCallId,
+                      output: value.output.output,
+                      duration: Date.now() - match.state.time.start,
+                    }).catch(() => {})
                     delete toolcalls[value.toolCallId]
                   }
                   break
@@ -262,6 +276,15 @@ export namespace SessionProcessor {
                     cost: usage.cost,
                   })
                   await Session.updateMessage(input.assistantMessage)
+                  SessionHooks.runOnTokenUsage({
+                    sessionID: input.sessionID,
+                    model: input.model.id,
+                    provider: input.model.providerID,
+                    input: usage.tokens.input,
+                    output: usage.tokens.output,
+                    cached: usage.tokens.cache_read ?? 0,
+                    cost: usage.cost,
+                  }).catch(() => {})
                   if (snapshot) {
                     const patch = await Snapshot.patch(snapshot)
                     if (patch.files.length) {

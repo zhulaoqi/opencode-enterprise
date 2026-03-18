@@ -48,6 +48,7 @@ import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncate"
 import { decodeDataUrl } from "@/util/data-url"
+import { SessionHooks } from "./hooks"
 
 // @ts-ignore
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -663,13 +664,15 @@ export namespace SessionPrompt {
         system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
       }
 
+      const hooked = await SessionHooks.runBeforePrompt({ sessionID, system })
+
       const result = await processor.process({
         user: lastUser,
         agent,
         permission: session.permission,
         abort,
         sessionID,
-        system,
+        system: hooked.system,
         messages: [
           ...MessageV2.toModelMessages(msgs, model),
           ...(isLastStep
@@ -929,7 +932,11 @@ export namespace SessionPrompt {
       tools[key] = item
     }
 
-    return tools
+    const resolved = await SessionHooks.runAfterToolResolve({
+      sessionID: input.session.id,
+      tools,
+    })
+    return resolved.tools
   }
 
   /** @internal Exported for testing */
