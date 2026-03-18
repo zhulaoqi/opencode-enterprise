@@ -8,6 +8,7 @@ import { admin } from "./routes/admin"
 import { mcpRoutes } from "./routes/mcp"
 import { billingRoutes } from "./routes/billing"
 import { dashboardRoutes } from "./routes/dashboard"
+import { imRoutes } from "./routes/im"
 
 export function server() {
   const app = new Hono()
@@ -20,6 +21,7 @@ export function server() {
     .route("/api/mcp", mcpRoutes)
     .route("/api/billing", billingRoutes)
     .route("/api/dashboard", dashboardRoutes)
+    .route("/api/im", imRoutes)
 
   return app
 }
