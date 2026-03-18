@@ -1,2 +1,1 @@
-// Re-export all table schemas
-// Tables will be added as modules are implemented
+export { identity_mapping } from "../auth/identity.sql"
