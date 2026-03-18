@@ -14,6 +14,22 @@ billing.get("/quotas", requireRole("admin", "manager"), async (c) => {
   return c.json({ quotas: configs })
 })
 
+billing.get("/quotas-with-usage", requireRole("admin", "manager"), async (c) => {
+  const configs = await quota.listConfigs(database())
+  const items = await Promise.all(
+    configs.map(async (cfg) => {
+      const u = await quota.usage(cfg.scope_type, cfg.scope_id, cfg.period)
+      return {
+        ...cfg,
+        tokens_used: u.tokens,
+        requests_used: u.requests,
+        cost_used: u.cost,
+      }
+    }),
+  )
+  return c.json({ quotas: items })
+})
+
 billing.post(
   "/quotas",
   requireRole("admin"),

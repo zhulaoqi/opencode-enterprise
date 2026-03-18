@@ -1,0 +1,40 @@
+import { For } from "solid-js"
+import { MessageBubble } from "./MessageBubble"
+import { ToolCallCard } from "./ToolCallCard"
+import { ReasoningBlock } from "./ReasoningBlock"
+import { StreamingCursor } from "./StreamingCursor"
+import { messages, streaming, isStreaming } from "../../stores/chat"
+import type { Message } from "../../stores/chat"
+
+function MsgRow(props: { msg: Message }) {
+  const m = props.msg
+  const content = m.content as { text?: string; tools?: { name: string; mcp?: string; status: string; duration_ms?: number; input?: unknown; output?: unknown }[]; reasoning?: string; reasoning_duration?: number }
+  if (m.role === "tool" || content?.tools?.length) {
+    const t = content?.tools?.[0]
+    if (t) return <ToolCallCard name={t.name} mcp={t.mcp} status={t.status as "executing" | "success" | "error"} duration={t.duration_ms} input={t.input} output={t.output} />
+  }
+  if (content?.reasoning) return <ReasoningBlock text={content.reasoning} duration={content.reasoning_duration} />
+  return <MessageBubble msg={m} />
+}
+
+export function MessageList() {
+  return (
+    <div class="flex-1 overflow-auto p-4">
+      <div class="max-w-3xl mx-auto">
+        <For each={messages()}>
+          {(msg) => <MsgRow msg={msg} />}
+        </For>
+        {isStreaming() && streaming() && (
+          <div class="flex justify-start mb-4">
+            <div class="max-w-[85%] rounded-[var(--radius-lg)] px-4 py-3 bg-[var(--color-bg-elevated)] border border-[var(--color-border)]">
+              <p class="text-sm whitespace-pre-wrap break-words">
+                {streaming()}
+                <StreamingCursor />
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

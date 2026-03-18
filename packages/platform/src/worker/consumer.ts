@@ -5,9 +5,10 @@ import { env } from "@/env"
 import { database } from "@/db"
 import * as session from "@/session"
 import * as identity from "@/auth/identity"
-import * as resolver from "@/mcp-manager/resolver"
 import * as feishuClient from "@/im-adapter/feishu/client"
 import * as cards from "@/im-adapter/feishu/cards"
+import * as notify from "./notify"
+import * as agent from "./agent"
 
 export function start(concurrency = 4) {
   const worker = new Worker<ChatJob>(
@@ -67,16 +68,12 @@ async function process(job: Job<ChatJob>) {
 
   const history = await session.messages(db, sess.id)
 
-  const roles = await import("@/rbac/role").then((m) =>
-    m.userRoleNames(db, user.internal_id, (user.department_ids ?? []) as string[]),
-  )
-  const mcps = await resolver.resolve(db, {
-    internal_id: user.internal_id,
-    roles,
-    dept_ids: (user.department_ids ?? []) as string[],
+  const historyForAgent = history.slice(0, -1).map((m) => {
+    const c = m.content
+    const text = typeof c === "object" && c && "text" in c ? String((c as { text?: unknown }).text ?? "") : String(c ?? "")
+    return { role: m.role, content: { text } }
   })
-
-  const result = await runAgent(sess.id, history, data.message, mcps)
+  const result = await agent.run(historyForAgent, data.message)
 
   await session.addMessage(db, {
     session_id: sess.id,
@@ -88,18 +85,14 @@ async function process(job: Job<ChatJob>) {
   })
 
   await pushResult(data, result.text, sess.id)
-}
 
-async function runAgent(
-  sessionId: string,
-  _history: unknown[],
-  message: string,
-  _mcps: unknown[],
-) {
-  return {
-    text: `[Agent Response] Processing: ${message}`,
-    tokens: { input: 0, output: 0 },
-    model: "placeholder",
+  if (data.source === "web" && data.callback.ws_id) {
+    await notify.publishDone({
+      user_id: data.user_id,
+      session_id: sess.id,
+      type: "done",
+      text: result.text,
+    })
   }
 }
 

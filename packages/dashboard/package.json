@@ -1,0 +1,26 @@
+{
+  "name": "@opencode-ai/dashboard",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "solid-js": "catalog:",
+    "@solidjs/router": "catalog:",
+    "echarts": "5.6.0",
+    "lucide-solid": "0.469.0",
+    "marked": "catalog:"
+  },
+  "devDependencies": {
+    "vite": "catalog:",
+    "vite-plugin-solid": "catalog:",
+    "tailwindcss": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -11,6 +11,8 @@ const schema = z.object({
   FEISHU_ENCRYPT_KEY: z.string().optional(),
   FEISHU_VERIFICATION_TOKEN: z.string().optional(),
   DASHBOARD_URL: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  LLM_MODEL: z.string().default("gpt-4o-mini"),
 })
 
 export type Env = z.infer<typeof schema>

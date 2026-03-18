@@ -6,6 +6,7 @@ import { database } from "@/db"
 import * as registry from "@/mcp-manager/registry"
 import * as resolver from "@/mcp-manager/resolver"
 import * as watcher from "@/mcp-manager/watcher"
+import * as dashboard from "@/billing/dashboard"
 
 const mcp = new Hono().use("/*", auth)
 
@@ -39,6 +40,23 @@ mcp.get("/:id/health", async (c) => {
   const mcpEntry = await registry.byId(db, c.req.param("id"))
   if (!mcpEntry) return c.json({ error: "Not found" }, 404)
   return c.json({ status: mcpEntry.health_status, checked_at: mcpEntry.last_health_at })
+})
+
+mcp.get("/:id/usage", async (c) => {
+  const db = database()
+  const mcpEntry = await registry.byId(db, c.req.param("id"))
+  if (!mcpEntry) return c.json({ error: "Not found" }, 404)
+  const days = Number(c.req.query("days") ?? 7)
+  const trend = await dashboard.mcpUsageTrend(db, mcpEntry.name, days)
+  return c.json({ trend })
+})
+
+mcp.get("/:id/tools", async (c) => {
+  const db = database()
+  const mcpEntry = await registry.byId(db, c.req.param("id"))
+  if (!mcpEntry) return c.json({ error: "Not found" }, 404)
+  const tools = await dashboard.mcpTools(db, mcpEntry.name)
+  return c.json({ tools })
 })
 
 mcp.post(

@@ -72,3 +72,34 @@ export async function dailyTrend(db: Database, days = 30) {
   `)
   return rows.rows as { day: Date; tokens_in: number; tokens_out: number; cost: number; requests: number }[]
 }
+
+export async function mcpUsageTrend(db: Database, mcpName: string, days = 7) {
+  const from = new Date()
+  from.setDate(from.getDate() - days)
+  const rows = await db.execute(sql`
+    SELECT date_trunc('day', created_at)::date as day,
+      coalesce(sum(tokens_input), 0)::bigint as tokens_in,
+      coalesce(sum(tokens_output), 0)::bigint as tokens_out,
+      count(*)::int as requests
+    FROM audit_log
+    WHERE created_at >= ${from}
+      AND EXISTS (
+        SELECT 1 FROM jsonb_array_elements(COALESCE(tools, '[]'::jsonb)) AS elem
+        WHERE elem->>'mcp' = ${mcpName}
+      )
+    GROUP BY date_trunc('day', created_at)::date
+    ORDER BY day
+  `)
+  return rows.rows as { day: Date; tokens_in: number; tokens_out: number; requests: number }[]
+}
+
+export async function mcpTools(db: Database, mcpName: string) {
+  const rows = await db.execute(sql`
+    SELECT elem->>'name' AS tool, count(*)::int AS calls
+    FROM audit_log, jsonb_array_elements(COALESCE(tools, '[]'::jsonb)) AS elem
+    WHERE elem->>'mcp' = ${mcpName}
+    GROUP BY elem->>'name'
+    ORDER BY count(*) DESC
+  `)
+  return rows.rows as { tool: string; calls: number }[]
+}

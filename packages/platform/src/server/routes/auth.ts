@@ -8,7 +8,17 @@ import * as jwt from "@/auth/jwt"
 import { userPermissions } from "@/rbac/role"
 import { database } from "@/db"
 
+const FEISHU_AUTH_BASE = "https://open.feishu.cn/open-apis/authen/v1/authorize"
+
 export const auth = new Hono()
+  .get("/feishu/url", (c) => {
+    const cfg = env()
+    const origin = c.req.header("Origin") ?? c.req.header("Referer") ?? ""
+    const base = cfg.DASHBOARD_URL ?? (origin ? new URL(origin).origin : "http://localhost:3200")
+    const redirect = `${base}/login`
+    const url = `${FEISHU_AUTH_BASE}?app_id=${cfg.FEISHU_APP_ID}&redirect_uri=${encodeURIComponent(redirect)}&scope=contact:user.base:readonly,contact:user.email:readonly`
+    return c.json({ url })
+  })
   .post(
     "/feishu/callback",
     zValidator("json", z.object({ code: z.string() })),

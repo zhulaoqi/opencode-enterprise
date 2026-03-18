@@ -3,12 +3,14 @@ import * as health from "./mcp-manager/health"
 import * as sync from "./billing/sync"
 import * as audit from "./billing/audit"
 import * as ws from "./server/ws"
+import * as wsSubscribe from "./server/ws-subscribe"
 import { FeishuAdapter } from "./im-adapter/feishu/adapter"
 import * as adapterRegistry from "./im-adapter/registry"
 
 const port = Number(process.env.PORT ?? 3100)
 
 adapterRegistry.register(new FeishuAdapter())
+wsSubscribe.start()
 
 const app = server()
 health.start()
