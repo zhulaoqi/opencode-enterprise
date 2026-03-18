@@ -1,2 +1,5 @@
 export { identity_mapping } from "../auth/identity.sql"
 export { role, user_role, department_role } from "../rbac/role.sql"
+export { enterprise_session } from "../session/session.sql"
+export { enterprise_message } from "../session/message.sql"
+export { enterprise_tool_log } from "../session/tool-log.sql"
