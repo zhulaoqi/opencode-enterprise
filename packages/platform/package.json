@@ -1,0 +1,28 @@
+{
+  "name": "@opencode-ai/platform",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "typecheck": "bun x tsgo --noEmit",
+    "test": "bun test",
+    "db": "bun drizzle-kit"
+  },
+  "dependencies": {
+    "drizzle-orm": "catalog:",
+    "pg": "8.13.3",
+    "ioredis": "5.6.1",
+    "jose": "6.0.11",
+    "bullmq": "5.52.2",
+    "hono": "catalog:",
+    "zod": "catalog:",
+    "ulid": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/pg": "8.11.13",
+    "drizzle-kit": "catalog:",
+    "typescript": "catalog:"
+  }
+}
