@@ -7,7 +7,9 @@ import { Skeleton } from "../components/ui/Skeleton"
 import { A } from "@solidjs/router"
 import { AuthorizationPanel } from "../components/mcp/AuthorizationPanel"
 import { TokenChart } from "../components/dashboard/TokenChart"
+import { Button } from "../components/ui/Button"
 import { user } from "../stores/auth"
+import { notify } from "../stores/notification"
 
 type McpDetail = {
   id: string
@@ -91,7 +93,16 @@ export default function McpDetail() {
                 {tools()!.tools.map((t) => (
                   <div class="flex flex-wrap items-center justify-between gap-2 py-2 px-3 rounded-[var(--radius-md)] bg-[var(--color-muted)]">
                     <span class="font-mono text-sm">{t.tool}</span>
-                    <Badge variant="info">{t.calls} 次调用</Badge>
+                    <div class="flex items-center gap-2">
+                      <Badge variant="info">{t.calls} 次调用</Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => notify("info", `工具 ${t.tool} 测试功能开发中`)}
+                      >
+                        测试
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

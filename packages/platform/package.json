@@ -11,6 +11,7 @@
     "db": "bun drizzle-kit"
   },
   "dependencies": {
+    "opencode": "workspace:*",
     "drizzle-orm": "catalog:",
     "pg": "8.13.3",
     "ioredis": "5.6.1",

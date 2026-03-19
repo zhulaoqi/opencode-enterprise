@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { role, user_role, department_role, type RolePermission } from "./role.sql"
 import type { Database } from "@/db"
 import { merge } from "./permission"
@@ -90,6 +90,19 @@ export async function userPermissions(db: Database, userId: string, deptIds: str
 
 export function assignRole(db: Database, userId: string, roleId: string) {
   return db.insert(user_role).values({ user_id: userId, role_id: roleId }).onConflictDoNothing()
+}
+
+export function removeRole(db: Database, userId: string, roleId: string) {
+  return db.delete(user_role).where(and(eq(user_role.user_id, userId), eq(user_role.role_id, roleId)))
+}
+
+export async function userRoles(db: Database, userId: string) {
+  const rows = await db
+    .select({ role_id: user_role.role_id, role_name: role.name })
+    .from(user_role)
+    .innerJoin(role, eq(user_role.role_id, role.id))
+    .where(eq(user_role.user_id, userId))
+  return rows
 }
 
 export function all(db: Database) {

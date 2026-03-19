@@ -6,6 +6,7 @@ import { Table, TableHead, TableBody, TableRow, TableCell } from "../components/
 import { Avatar } from "../components/ui/Avatar"
 import { Dropdown } from "../components/ui/Dropdown"
 import { Button } from "../components/ui/Button"
+import { RoleEditor } from "../components/admin/RoleEditor"
 import { notify } from "../stores/notification"
 
 type User = {
@@ -17,16 +18,40 @@ type User = {
 }
 
 const PAGE_SIZE = 20
+const ROLES = ["全部", "developer", "finance", "manager", "admin"] as const
+const STATUSES = ["全部", "active", "disabled"] as const
+
+const sel = "h-9 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] text-sm"
+
+function csv(rows: User[]) {
+  const header = "ID,姓名,工号,邮箱"
+  const lines = rows.map((u) =>
+    [u.internal_id, u.name, u.employee_id ?? "", u.email ?? ""].join(",")
+  )
+  const blob = new Blob([header + "\n" + lines.join("\n")], { type: "text/csv" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = "users.csv"
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export default function Users() {
   const [search, setSearch] = createSignal("")
+  const [role, setRole] = createSignal("全部")
+  const [status, setStatus] = createSignal("全部")
   const [filter, setFilter] = createSignal({ q: "", page: 0 })
+  const [roleUserId, setRoleUserId] = createSignal<string | null>(null)
   const [data] = createResource(
-    () => filter(),
-    (f) =>
-      api.get<User[]>(
-        `/admin/users?limit=${PAGE_SIZE}&offset=${f.page * PAGE_SIZE}${f.q ? `&search=${encodeURIComponent(f.q)}` : ""}`
-      )
+    () => ({ f: filter(), r: role(), s: status() }),
+    (p) => {
+      let url = `/admin/users?limit=${PAGE_SIZE}&offset=${p.f.page * PAGE_SIZE}`
+      if (p.f.q) url += `&search=${encodeURIComponent(p.f.q)}`
+      if (p.r !== "全部") url += `&role=${encodeURIComponent(p.r)}`
+      if (p.s !== "全部") url += `&status=${encodeURIComponent(p.s)}`
+      return api.get<User[]>(url)
+    }
   )
 
   const applySearch = () => setFilter({ q: search(), page: 0 })
@@ -48,8 +73,17 @@ export default function Users() {
           onInput={(e) => setSearch(e.currentTarget.value)}
           onKeyDown={(e) => e.key === "Enter" && applySearch()}
         />
+        <select class={sel} value={role()} onChange={(e) => setRole(e.currentTarget.value)}>
+          {ROLES.map((r) => <option value={r}>{r === "全部" ? "角色: 全部" : r}</option>)}
+        </select>
+        <select class={sel} value={status()} onChange={(e) => setStatus(e.currentTarget.value)}>
+          {STATUSES.map((s) => <option value={s}>{s === "全部" ? "状态: 全部" : s}</option>)}
+        </select>
         <Button variant="secondary" size="sm" onClick={applySearch}>
           搜索
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => csv(users())}>
+          导出
         </Button>
       </div>
       {data.loading && <Skeleton height={200} />}
@@ -92,9 +126,21 @@ export default function Users() {
                     >
                       <button
                         class="w-full px-4 py-2 text-left text-sm hover:bg-[var(--color-muted)]"
-                        onClick={() => notify("info", "角色管理功能开发中")}
+                        onClick={() => setRoleUserId(u.internal_id)}
                       >
                         分配角色
+                      </button>
+                      <button
+                        class="w-full px-4 py-2 text-left text-sm hover:bg-[var(--color-muted)]"
+                        onClick={() => notify("info", "功能开发中")}
+                      >
+                        调整配额
+                      </button>
+                      <button
+                        class="w-full px-4 py-2 text-left text-sm hover:bg-[var(--color-muted)]"
+                        onClick={() => notify("info", "功能开发中")}
+                      >
+                        查看记录
                       </button>
                     </Dropdown>
                   </TableCell>
@@ -117,6 +163,11 @@ export default function Users() {
           </div>
         </Card>
       )}
+      <RoleEditor
+        userId={roleUserId() ?? ""}
+        open={!!roleUserId()}
+        onClose={() => setRoleUserId(null)}
+      />
     </div>
   )
 }

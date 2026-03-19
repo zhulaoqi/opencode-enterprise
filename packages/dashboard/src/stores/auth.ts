@@ -5,6 +5,7 @@ export type User = {
   name: string
   email?: string
   avatar?: string
+  roles?: string[]
 }
 
 const [_token, setToken] = createSignal(

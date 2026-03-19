@@ -8,7 +8,7 @@ import { TimeRangeSelector } from "../components/dashboard/TimeRangeSelector"
 import { ToolRanking } from "../components/dashboard/ToolRanking"
 import { fmtNum } from "../lib/format"
 
-type Range = "day" | "week" | "month"
+type Range = "day" | "week" | "month" | "quarter"
 
 export default function Dashboard() {
   const [range, setRange] = createSignal<Range>("month")

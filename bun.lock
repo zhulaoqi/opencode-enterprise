@@ -446,6 +446,7 @@
         "hono": "catalog:",
         "ioredis": "5.6.1",
         "jose": "6.0.11",
+        "opencode": "workspace:*",
         "pg": "8.13.3",
         "ulid": "catalog:",
         "zod": "catalog:",

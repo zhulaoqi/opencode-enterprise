@@ -12,6 +12,10 @@ export type McpItem = {
   accessible?: boolean
   authorized?: boolean
   owner_id?: string
+  tool_count?: number
+  daily_calls?: number
+  authorized_count?: number
+  owner_name?: string
 }
 
 const [mcps, setMcps] = createSignal<McpItem[]>([])

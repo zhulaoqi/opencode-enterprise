@@ -22,6 +22,11 @@ export const admin = new Hono()
     const rows = await role.all(db)
     return c.json(rows)
   })
+  .get("/users/:id/roles", async (c) => {
+    const db = database()
+    const rows = await role.userRoles(db, c.req.param("id"))
+    return c.json({ roles: rows })
+  })
   .post(
     "/roles/assign",
     zValidator(
@@ -38,6 +43,11 @@ export const admin = new Hono()
       return c.json({ ok: true })
     },
   )
+  .delete("/users/:id/roles/:roleId", async (c) => {
+    const db = database()
+    await role.removeRole(db, c.req.param("id"), c.req.param("roleId"))
+    return c.json({ ok: true })
+  })
   .post("/seed", async (c) => {
     const db = database()
     await role.seed(db)

@@ -9,6 +9,8 @@ import * as feishuClient from "@/im-adapter/feishu/client"
 import * as cards from "@/im-adapter/feishu/cards"
 import * as notify from "./notify"
 import * as agent from "./agent"
+import { beforePrompt } from "@/hooks/before-prompt"
+import { onTokenUsage } from "@/hooks/on-token-usage"
 
 export function start(concurrency = 4) {
   const worker = new Worker<ChatJob>(
@@ -68,12 +70,35 @@ async function process(job: Job<ChatJob>) {
 
   const history = await session.messages(db, sess.id)
 
-  const historyForAgent = history.slice(0, -1).map((m) => {
+  try {
+    await beforePrompt({
+      sessionID: sess.id,
+      userId: data.user_id,
+      system: [],
+    })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "配额不足，请稍后再试"
+    await pushResult(data, msg, sess.id)
+    return
+  }
+
+  const prev = history.slice(0, -1).map((m) => {
     const c = m.content
     const text = typeof c === "object" && c && "text" in c ? String((c as { text?: unknown }).text ?? "") : String(c ?? "")
     return { role: m.role, content: { text } }
   })
-  const result = await agent.run(historyForAgent, data.message)
+  const result = await agent.run(prev, data.message)
+
+  await onTokenUsage({
+    sessionID: sess.id,
+    userId: data.user_id,
+    model: result.model,
+    provider: "openai",
+    input: result.tokens.input,
+    output: result.tokens.output,
+    cached: 0,
+    cost: 0,
+  })
 
   await session.addMessage(db, {
     session_id: sess.id,

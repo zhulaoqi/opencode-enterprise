@@ -6,9 +6,11 @@ import * as ws from "./server/ws"
 import * as wsSubscribe from "./server/ws-subscribe"
 import { FeishuAdapter } from "./im-adapter/feishu/adapter"
 import * as adapterRegistry from "./im-adapter/registry"
+import { register as registerHooks } from "./hooks/register"
 
 const port = Number(process.env.PORT ?? 3100)
 
+registerHooks()
 adapterRegistry.register(new FeishuAdapter())
 wsSubscribe.start()
 

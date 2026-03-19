@@ -1,6 +1,7 @@
 import { onMount, createMemo, createSignal, For } from "solid-js"
 import { Card } from "../components/ui/Card"
 import { Skeleton } from "../components/ui/Skeleton"
+import { Button } from "../components/ui/Button"
 import { McpCard } from "../components/mcp/McpCard"
 import { McpFilter } from "../components/mcp/McpFilter"
 import { user } from "../stores/auth"
@@ -40,7 +41,10 @@ export default function McpMarket() {
 
   return (
     <div class="p-4 max-w-5xl mx-auto">
-      <h1 class="text-2xl font-bold text-[var(--color-text-primary)] mb-4">MCP 市场</h1>
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-bold text-[var(--color-text-primary)]">MCP 市场</h1>
+        <Button variant="accent" size="sm">注册新 MCP</Button>
+      </div>
       <McpFilter
         tab={tab()}
         onTabChange={setTab}
@@ -64,7 +68,7 @@ export default function McpMarket() {
       {error() && <p class="text-[var(--color-error)]">加载失败: {error()}</p>}
       {!loading() && !error() && (
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <For each={filtered()}>{(m) => <McpCard mcp={m} />}</For>
+          <For each={filtered()}>{(m) => <McpCard mcp={m} showAuth />}</For>
         </div>
       )}
     </div>

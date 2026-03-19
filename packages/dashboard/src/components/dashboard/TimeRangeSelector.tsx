@@ -1,4 +1,4 @@
-type Range = "day" | "week" | "month"
+type Range = "day" | "week" | "month" | "quarter"
 
 type Props = {
   value: Range
@@ -9,6 +9,7 @@ const opts: { id: Range; label: string }[] = [
   { id: "day", label: "今日" },
   { id: "week", label: "本周" },
   { id: "month", label: "本月" },
+  { id: "quarter", label: "本季" },
 ]
 
 export function TimeRangeSelector(props: Props) {

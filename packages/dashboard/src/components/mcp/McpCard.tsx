@@ -6,6 +6,7 @@ import type { McpItem } from "../../stores/mcp"
 
 type Props = {
   mcp: McpItem
+  showAuth?: boolean
 }
 
 const healthVariant = (s?: string) => {
@@ -34,6 +35,13 @@ export function McpCard(props: Props) {
               {(m().tags ?? []).slice(0, 2).map((t) => (
                 <Badge variant="info">{t}</Badge>
               ))}
+              {props.showAuth && m().visibility === "SHARED" && !m().authorized && (
+                <Badge variant="warning">请求授权</Badge>
+              )}
+            </div>
+            <div class="flex gap-4 mt-2 text-xs text-[var(--color-text-muted)]">
+              {m().tool_count != null && <span>{m().tool_count} 工具</span>}
+              {m().daily_calls != null && <span>{m().daily_calls}/天</span>}
             </div>
           </div>
         </div>
