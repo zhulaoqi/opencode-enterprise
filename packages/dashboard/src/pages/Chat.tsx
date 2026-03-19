@@ -10,7 +10,7 @@ type McpItem = { id: string; name: string; authorized?: boolean }
 
 const [mcps] = createResource(
   activeId,
-  () => api.get<McpItem[]>("/mcp/market").then((list) => list.filter((m) => m.authorized)),
+  () => api.get<{ mcps: McpItem[] }>("/mcp/market").then((res) => (res.mcps ?? []).filter((m) => m.authorized)),
 )
 
 export default function Chat() {

@@ -7,12 +7,12 @@ export async function seed(db: Database) {
   const defaults: { name: string; display_name: string; permissions: RolePermission[] }[] = [
     {
       name: "developer",
-      display_name: "Developer",
+      display_name: "开发者",
       permissions: [{ type: "feature", pattern: "chat", action: "allow" }],
     },
     {
       name: "finance",
-      display_name: "Finance",
+      display_name: "财务",
       permissions: [
         { type: "feature", pattern: "chat", action: "allow" },
         { type: "feature", pattern: "approval", action: "allow" },
@@ -20,7 +20,7 @@ export async function seed(db: Database) {
     },
     {
       name: "manager",
-      display_name: "Manager",
+      display_name: "管理者",
       permissions: [
         { type: "feature", pattern: "dashboard", action: "allow" },
         { type: "feature", pattern: "quota_manage", action: "allow" },
@@ -29,12 +29,18 @@ export async function seed(db: Database) {
     },
     {
       name: "admin",
-      display_name: "Administrator",
+      display_name: "管理员",
       permissions: [{ type: "feature", pattern: "*", action: "allow" }],
     },
   ]
   for (const r of defaults) {
-    await db.insert(role).values({ ...r, is_system: true }).onConflictDoNothing({ target: role.name })
+    await db
+      .insert(role)
+      .values({ ...r, is_system: true })
+      .onConflictDoUpdate({
+        target: role.name,
+        set: { display_name: r.display_name, permissions: r.permissions },
+      })
   }
 }
 

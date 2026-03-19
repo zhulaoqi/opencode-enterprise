@@ -36,11 +36,35 @@ export async function loadMessages(id: string) {
   setMessages(Array.isArray(rows) ? rows : [])
 }
 
+let streamTimeout: ReturnType<typeof setTimeout>
+
 export function sendMessage(text: string, model?: string) {
   const id = activeId()
   if (!id) return
+  if (isStreaming()) {
+    setIsStreaming(false)
+    setStreaming("")
+    clearInterval(pollTimer)
+  }
   setIsStreaming(true)
   setStreaming("")
+  clearTimeout(streamTimeout)
+  streamTimeout = setTimeout(() => {
+    if (isStreaming()) {
+      setIsStreaming(false)
+      setStreaming("")
+      loadMessages(activeId())
+    }
+  }, 120_000)
+  setMessages((prev) => [
+    ...prev,
+    {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: { text },
+      created_at: new Date().toISOString(),
+    },
+  ])
   wsSend({ type: "chat", session_id: id, message: text, ...(model && { model_id: model }) })
 }
 
@@ -111,6 +135,7 @@ wsOn("tool_call", (msg) => {
 
 wsOn("done", (msg) => {
   clearInterval(pollTimer)
+  clearTimeout(streamTimeout)
   setIsStreaming(false)
   const payload = msg as { session_id?: string; text?: string }
   if (payload.session_id !== activeId()) return
@@ -143,6 +168,7 @@ wsOn("done", (msg) => {
 
 wsOn("error", (msg) => {
   clearInterval(pollTimer)
+  clearTimeout(streamTimeout)
   setIsStreaming(false)
   setStreaming("")
   const payload = msg as { session_id?: string; message?: string }
@@ -174,4 +200,18 @@ wsOn("mcp_change", (msg) => {
   if (parts.length) {
     import("../stores/notification").then((m) => m.notify("info", `MCP 工具变更 — ${parts.join("; ")}`))
   }
+})
+
+wsOn("_disconnect", () => {
+  clearInterval(pollTimer)
+  clearTimeout(streamTimeout)
+  if (isStreaming()) {
+    setIsStreaming(false)
+    setStreaming("")
+  }
+})
+
+wsOn("_reconnect", () => {
+  const id = activeId()
+  if (id) wsSend({ type: "subscribe", session_id: id })
 })

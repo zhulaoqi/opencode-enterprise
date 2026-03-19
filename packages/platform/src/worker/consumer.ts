@@ -14,15 +14,19 @@ import { onTokenUsage } from "@/hooks/on-token-usage"
 import { emitDone, emitError } from "@/server/ws"
 
 export function start(concurrency = 4) {
+  console.log(`[worker] connecting to Redis: ${connection.host}:${connection.port}`)
   const worker = new Worker<ChatJob>(
     "chat",
-    process,
+    handle,
     {
       connection,
       concurrency,
       limiter: { max: 100, duration: 60_000 },
     },
   )
+
+  worker.on("ready", () => console.log("[worker] ready, listening for jobs"))
+  worker.on("error", (err) => console.error("[worker] error:", err.message))
 
   worker.on("completed", (job) => {
     console.log(`[worker] job ${job.id} completed`)
@@ -36,7 +40,8 @@ export function start(concurrency = 4) {
   return worker
 }
 
-async function process(job: Job<ChatJob>) {
+async function handle(job: Job<ChatJob>) {
+  console.log(`[worker] processing job ${job.id}: ${job.data.message?.substring(0, 30)}`)
   const data = job.data
   const db = database()
 
@@ -89,7 +94,17 @@ async function process(job: Job<ChatJob>) {
     const text = typeof c === "object" && c && "text" in c ? String((c as { text?: unknown }).text ?? "") : String(c ?? "")
     return { role: m.role, content: { text } }
   })
-  const result = await agent.run(prev, data.message, data.model_id)
+
+  let result: Awaited<ReturnType<typeof agent.run>>
+  try {
+    result = await agent.run(prev, data.message, data.model_id)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "AI 调用失败"
+    console.error(`[worker] agent.run failed for session ${sess.id}:`, msg)
+    if (data.source === "web") emitError(sess.id, "agent_error", msg)
+    await pushResult(data, `[错误] ${msg}`, sess.id)
+    return
+  }
 
   await onTokenUsage({
     sessionID: sess.id,
@@ -114,7 +129,7 @@ async function process(job: Job<ChatJob>) {
   await pushResult(data, result.text, sess.id)
 
   if (data.source === "web") {
-    emitDone(sess.id, { input: result.tokens.input, output: result.tokens.output, model: result.model })
+    emitDone(sess.id, { text: result.text, input: result.tokens.input, output: result.tokens.output, model: result.model })
   }
 }
 
@@ -131,6 +146,9 @@ async function pushResult(data: ChatJob, text: string, sessionId: string) {
 
 async function handleFailure(data: ChatJob | undefined, error: string) {
   if (!data) return
+  if (data.source === "web" && data.session_id) {
+    emitError(data.session_id, "job_failed", error)
+  }
   if (data.source === "feishu" && data.callback.chat_id) {
     await feishuClient.sendCard(data.callback.chat_id, cards.errorCard(error))
   }

@@ -11,15 +11,38 @@ dash.get("/overview", async (c) => {
   const from = new Date()
   if (range === "day") from.setDate(from.getDate() - 1)
   else if (range === "week") from.setDate(from.getDate() - 7)
+  else if (range === "quarter") from.setMonth(from.getMonth() - 3)
   else from.setMonth(from.getMonth() - 1)
   const data = await dashboard.overview(db, from, new Date())
   return c.json(data)
 })
 
-dash.get("/by-department", async (c) => {
+dash.get("/trend", async (c) => {
   const db = database()
-  const data = await dashboard.usageByDepartment(db, "monthly")
-  return c.json({ departments: data })
+  const days = Number(c.req.query("days") ?? 30)
+  const data = await dashboard.dailyTrend(db, days)
+  return c.json({ trend: data })
+})
+
+dash.get("/active-users", async (c) => {
+  const db = database()
+  const range = c.req.query("range") ?? "week"
+  const data = await dashboard.activeUsers(db, range)
+  return c.json({ users: data })
+})
+
+dash.get("/mcp-leaderboard", async (c) => {
+  const db = database()
+  const range = c.req.query("range") ?? "week"
+  const data = await dashboard.mcpLeaderboard(db, range)
+  return c.json({ mcps: data })
+})
+
+dash.get("/model-distribution", async (c) => {
+  const db = database()
+  const range = c.req.query("range") ?? "week"
+  const data = await dashboard.modelDistribution(db, range)
+  return c.json({ models: data })
 })
 
 dash.get("/top-tools", async (c) => {
@@ -31,11 +54,10 @@ dash.get("/top-tools", async (c) => {
   return c.json({ tools: data })
 })
 
-dash.get("/trend", async (c) => {
+dash.get("/recent-activity", async (c) => {
   const db = database()
-  const days = Number(c.req.query("days") ?? 30)
-  const data = await dashboard.dailyTrend(db, days)
-  return c.json({ trend: data })
+  const data = await dashboard.recentActivity(db)
+  return c.json({ activity: data })
 })
 
 export { dash as dashboardRoutes }

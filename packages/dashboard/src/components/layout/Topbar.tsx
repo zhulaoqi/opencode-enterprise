@@ -1,5 +1,5 @@
 import { createSignal } from "solid-js"
-import { Search, Bell, Sun, Moon, LogOut, Settings } from "lucide-solid"
+import { Bell, Sun, Moon, LogOut, Settings } from "lucide-solid"
 import { user, logout } from "../../stores/auth"
 import { Avatar } from "../ui/Avatar"
 import { setTheme, resolved } from "../../stores/theme"
@@ -14,17 +14,7 @@ export function Topbar() {
   }
 
   return (
-    <header class="h-12 flex items-center justify-between px-4 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
-      <div class="flex items-center gap-3 flex-1 max-w-md">
-        <div class="relative flex-1">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" size={18} />
-          <input
-            type="search"
-            placeholder="搜索..."
-            class="w-full h-9 pl-9 pr-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] text-sm placeholder:text-[var(--color-text-muted)] focus:outline-none focus:border-[var(--color-border-focus)]"
-          />
-        </div>
-      </div>
+    <header class="h-12 flex items-center justify-end px-4 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
       <div class="flex items-center gap-2">
         <span
           class={`text-xs px-2 py-0.5 rounded ${connected() ? "bg-[var(--color-success-light)] text-[var(--color-success)]" : "bg-[var(--color-muted)] text-[var(--color-text-muted)]"}`}

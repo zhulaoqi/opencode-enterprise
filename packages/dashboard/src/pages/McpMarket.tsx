@@ -31,6 +31,36 @@ const empty = () => ({
   tags: "",
 })
 
+const examples: Record<string, { config: string; name: string; display: string; desc: string; tags: string }> = {
+  stdio: {
+    config: JSON.stringify({ command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"], env: {} }, null, 2),
+    name: "filesystem",
+    display: "文件系统",
+    desc: "通过 stdio 管道调用本地 MCP 进程，适用于 CLI 工具",
+    tags: "filesystem,tool",
+  },
+  http: {
+    config: JSON.stringify({ url: "https://mcp.example.com/api", headers: { Authorization: "Bearer sk-xxx" } }, null, 2),
+    name: "remote-api",
+    display: "远程 API",
+    desc: "通过 HTTP 调用远程 MCP 服务，适用于云端部署的工具",
+    tags: "api,remote",
+  },
+  sse: {
+    config: JSON.stringify({ url: "https://mcp.example.com/sse", headers: {} }, null, 2),
+    name: "realtime-sse",
+    display: "实时 SSE 服务",
+    desc: "通过 Server-Sent Events 连接 MCP，适用于需要流式响应的场景",
+    tags: "streaming,realtime",
+  },
+}
+
+const visLabels: Record<string, { label: string; hint: string }> = {
+  PUBLIC: { label: "公开", hint: "所有用户自动可用" },
+  SHARED: { label: "受限", hint: "需要申请或管理员授权后可用" },
+  PRIVATE: { label: "私有", hint: "仅自己和指定成员可见" },
+}
+
 export default function McpMarket() {
   const [tab, setTab] = createSignal<Tab>("all")
   const [search, setSearch] = createSignal("")
@@ -123,44 +153,94 @@ export default function McpMarket() {
         </Show>
       </Show>
       <Modal open={showReg()} onClose={() => setShowReg(false)} title="注册新 MCP" size="md">
-        <div class="space-y-3">
-          <Input label="名称 *" value={form().name} onInput={(v) => patch("name", v)} placeholder="唯一标识" />
-          <Input label="显示名称 *" value={form().display_name} onInput={(v) => patch("display_name", v)} placeholder="展示用名称" />
-          <Input label="描述" value={form().description} onInput={(v) => patch("description", v)} placeholder="简要描述" />
+        <div class="space-y-4">
+          {/* Type selector */}
           <div>
-            <label class="block text-sm font-semibold text-[var(--color-text-primary)] mb-1">类型</label>
-            <select
-              class="w-full h-10 px-3 text-base rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-focus)]"
-              value={form().type}
-              onChange={(e) => patch("type", e.currentTarget.value)}
-            >
-              <option value="stdio">stdio</option>
-              <option value="http">http</option>
-              <option value="sse">sse</option>
-            </select>
+            <label class="block text-sm font-semibold text-[var(--color-text-primary)] mb-2">连接类型</label>
+            <div class="grid grid-cols-3 gap-2">
+              <For each={["stdio", "http", "sse"]}>
+                {(t) => (
+                  <button
+                    class={`py-2.5 px-3 rounded-lg border text-sm text-center transition-all ${form().type === t ? "border-[var(--color-primary)] bg-blue-50 text-[var(--color-primary)] font-medium shadow-sm" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)]"}`}
+                    onClick={() => patch("type", t)}
+                  >
+                    <div class="font-mono font-medium">{t}</div>
+                    <div class="text-[11px] mt-0.5 opacity-70">
+                      {t === "stdio" ? "本地进程" : t === "http" ? "HTTP 远程" : "SSE 流式"}
+                    </div>
+                  </button>
+                )}
+              </For>
+            </div>
           </div>
+
+          <Input label="名称 *" value={form().name} onInput={(v) => patch("name", v)} placeholder="唯一标识，如: filesystem" helper="英文小写，用于系统内部引用" />
+          <Input label="显示名称 *" value={form().display_name} onInput={(v) => patch("display_name", v)} placeholder="如: 文件系统工具" />
+          <Input label="描述" value={form().description} onInput={(v) => patch("description", v)} placeholder="简要描述 MCP 的功能和用途" />
+
+          {/* Visibility */}
           <div>
-            <label class="block text-sm font-semibold text-[var(--color-text-primary)] mb-1">可见性</label>
-            <select
-              class="w-full h-10 px-3 text-base rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-focus)]"
-              value={form().visibility}
-              onChange={(e) => patch("visibility", e.currentTarget.value)}
-            >
-              <option value="PUBLIC">PUBLIC</option>
-              <option value="SHARED">SHARED</option>
-              <option value="PRIVATE">PRIVATE</option>
-            </select>
+            <label class="block text-sm font-semibold text-[var(--color-text-primary)] mb-2">可见性</label>
+            <div class="grid grid-cols-3 gap-2">
+              <For each={["PUBLIC", "SHARED", "PRIVATE"]}>
+                {(v) => {
+                  const info = visLabels[v]
+                  return (
+                    <button
+                      class={`py-2 px-3 rounded-lg border text-sm text-center transition-all ${form().visibility === v ? "border-[var(--color-primary)] bg-blue-50 text-[var(--color-primary)] font-medium shadow-sm" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)]"}`}
+                      onClick={() => patch("visibility", v)}
+                    >
+                      <div class="font-medium">{info.label}</div>
+                      <div class="text-[11px] mt-0.5 opacity-70">{info.hint}</div>
+                    </button>
+                  )
+                }}
+              </For>
+            </div>
           </div>
+
+          {/* Config JSON */}
           <div>
-            <label class="block text-sm font-semibold text-[var(--color-text-primary)] mb-1">配置 (JSON)</label>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="text-sm font-semibold text-[var(--color-text-primary)]">配置 (JSON)</label>
+              <button
+                class="text-xs text-[var(--color-primary)] hover:underline"
+                onClick={() => {
+                  const ex = examples[form().type]
+                  if (ex) setForm((f) => ({ ...f, config: ex.config, name: f.name || ex.name, display_name: f.display_name || ex.display, description: f.description || ex.desc, tags: f.tags || ex.tags }))
+                }}
+              >
+                填充示例
+              </button>
+            </div>
             <textarea
-              class="w-full h-24 px-3 py-2 text-sm font-mono rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-focus)] resize-y"
+              class="w-full h-32 px-3 py-2 text-sm font-mono rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text-primary)] focus:outline-none focus:border-[var(--color-border-focus)] focus:ring-2 focus:ring-blue-500/10 resize-y"
               value={form().config}
               onInput={(e) => patch("config", e.currentTarget.value)}
-              placeholder='{"command": "..."}'
+              placeholder={examples[form().type]?.config ?? '{"command": "..."}'}
             />
+            <div class="mt-1.5 p-2.5 rounded-lg bg-[var(--color-muted)] text-xs text-[var(--color-text-muted)] space-y-1">
+              <Show when={form().type === "stdio"}>
+                <p><b class="text-[var(--color-text-secondary)]">stdio 配置项：</b></p>
+                <p><code class="text-[var(--color-primary)]">command</code> — 要执行的命令（如 npx, node, python）</p>
+                <p><code class="text-[var(--color-primary)]">args</code> — 命令参数数组</p>
+                <p><code class="text-[var(--color-primary)]">env</code> — 环境变量（可选，如 API key）</p>
+              </Show>
+              <Show when={form().type === "http"}>
+                <p><b class="text-[var(--color-text-secondary)]">http 配置项：</b></p>
+                <p><code class="text-[var(--color-primary)]">url</code> — 远程 MCP 服务的 HTTP 端点</p>
+                <p><code class="text-[var(--color-primary)]">headers</code> — 请求头（可选，用于传 Auth token）</p>
+              </Show>
+              <Show when={form().type === "sse"}>
+                <p><b class="text-[var(--color-text-secondary)]">sse 配置项：</b></p>
+                <p><code class="text-[var(--color-primary)]">url</code> — SSE 服务端点</p>
+                <p><code class="text-[var(--color-primary)]">headers</code> — 请求头（可选）</p>
+              </Show>
+            </div>
           </div>
-          <Input label="标签" value={form().tags} onInput={(v) => patch("tags", v)} placeholder="逗号分隔，如: ai,tool" />
+
+          <Input label="标签" value={form().tags} onInput={(v) => patch("tags", v)} placeholder="逗号分隔，如: ai,tool,code" helper="用于筛选和分类" />
+
           <div class="flex justify-end gap-2 pt-2">
             <Button variant="secondary" size="sm" onClick={() => setShowReg(false)}>取消</Button>
             <Button variant="accent" size="sm" loading={submitting()} onClick={submit}>提交</Button>

@@ -7,8 +7,10 @@ import * as wsSubscribe from "./server/ws-subscribe"
 import { FeishuAdapter } from "./im-adapter/feishu/adapter"
 import * as adapterRegistry from "./im-adapter/registry"
 import { register as registerHooks } from "./hooks/register"
+import { start as startWorker } from "./worker/consumer"
 
 const port = Number(process.env.PORT ?? 3100)
+const concurrency = Number(process.env.WORKER_CONCURRENCY ?? 4)
 
 registerHooks()
 adapterRegistry.register(new FeishuAdapter())
@@ -18,6 +20,10 @@ const app = server()
 health.start()
 sync.start()
 audit.startFlush()
+
+const worker = startWorker(concurrency)
+ws.startSweeper()
+console.log(`[worker] started with concurrency=${concurrency}`)
 
 function fetch(req: Request, server: { upgrade: (r: Request, opts?: { data?: unknown }) => boolean }) {
   const url = new URL(req.url)

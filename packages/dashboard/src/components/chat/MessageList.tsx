@@ -1,4 +1,4 @@
-import { For } from "solid-js"
+import { For, createEffect, on } from "solid-js"
 import { MessageBubble } from "./MessageBubble"
 import { ToolCallCard } from "./ToolCallCard"
 import { ReasoningBlock } from "./ReasoningBlock"
@@ -36,8 +36,17 @@ function MsgRow(props: { msg: Message }) {
 }
 
 export function MessageList() {
+  let container: HTMLDivElement | undefined
+  let anchor: HTMLDivElement | undefined
+
+  function scroll() {
+    anchor?.scrollIntoView({ behavior: "smooth", block: "end" })
+  }
+
+  createEffect(on([messages, streaming], scroll, { defer: true }))
+
   return (
-    <div class="flex-1 overflow-auto p-4">
+    <div ref={container} class="flex-1 overflow-auto p-4">
       <div class="max-w-3xl mx-auto">
         <For each={messages()}>
           {(msg) => <MsgRow msg={msg} />}
@@ -52,6 +61,7 @@ export function MessageList() {
             </div>
           </div>
         )}
+        <div ref={anchor} class="h-1" />
       </div>
     </div>
   )

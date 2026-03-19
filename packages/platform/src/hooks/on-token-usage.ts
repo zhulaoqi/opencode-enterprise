@@ -20,21 +20,24 @@ export async function onTokenUsage(input: {
     cached: input.cached,
     model: cost.modelCost(input.model),
   })
-  const tokens = input.input + input.output + input.cached
+  const inp = input.input + input.cached
+  const out = input.output
 
   if (input.userId) {
-    await quota.increment("user", input.userId, "daily", tokens, c)
-    await quota.increment("user", input.userId, "monthly", tokens, c)
+    await quota.increment("user", input.userId, "daily", inp, out, c)
+    await quota.increment("user", input.userId, "monthly", inp, out, c)
 
     const db = database()
     const user = await identity.byInternalId(db, input.userId)
     if (user) {
       const deptIds = (user.department_ids ?? []) as string[]
       for (const deptId of deptIds) {
-        await quota.increment("department", deptId, "daily", tokens, c)
-        await quota.increment("department", deptId, "monthly", tokens, c)
+        await quota.increment("department", deptId, "daily", inp, out, c)
+        await quota.increment("department", deptId, "monthly", inp, out, c)
       }
     }
+    await quota.increment("global", "", "daily", inp, out, c)
+    await quota.increment("global", "", "monthly", inp, out, c)
 
     audit.log({
       user_id: input.userId,

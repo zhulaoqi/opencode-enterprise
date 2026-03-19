@@ -1,4 +1,5 @@
 import type { JSX } from "solid-js"
+import { Dynamic } from "solid-js/web"
 
 type Props = {
   class?: string
@@ -32,11 +33,10 @@ export function TableRow(props: Props & { head?: boolean }) {
 }
 
 export function TableCell(props: Props & { head?: boolean; align?: "left" | "right" }) {
-  const Tag = props.head ? "th" : "td"
-  const align = props.align ?? "left"
+  const cls = () => `py-3 px-4 ${props.head ? "font-medium" : ""} ${(props.align ?? "left") === "right" ? "text-right" : "text-left"}`
   return (
-    <Tag class={`py-3 px-4 ${props.head ? "font-medium" : ""} ${align === "right" ? "text-right" : "text-left"}`}>
+    <Dynamic component={props.head ? "th" : "td"} class={cls()}>
       {props.children}
-    </Tag>
+    </Dynamic>
   )
 }

@@ -78,34 +78,51 @@ export async function checkQuota(
   return { allowed: true }
 }
 
-export async function increment(scope: string, id: string, period: string, tokens: number, cost: number) {
-  const r = redis()
-  const key = periodKey(period)
-  const pipeline = r.pipeline()
-  pipeline.incrby(redisKey(scope, id, key, "tokens"), tokens)
-  pipeline.incr(redisKey(scope, id, key, "requests"))
-  pipeline.incrbyfloat(redisKey(scope, id, key, "cost"), cost)
-  const ttl = period === "daily" ? 86400 * 2 : 86400 * 35
-  pipeline.expire(redisKey(scope, id, key, "tokens"), ttl)
-  pipeline.expire(redisKey(scope, id, key, "requests"), ttl)
-  pipeline.expire(redisKey(scope, id, key, "cost"), ttl)
-  await pipeline.exec()
-}
-
-export async function usage(
+export async function increment(
   scope: string,
   id: string,
   period: string,
-): Promise<{ tokens: number; requests: number; cost: number }> {
+  input: number,
+  output: number,
+  cost: number,
+) {
   const r = redis()
   const key = periodKey(period)
-  const [tokens, requests, cost] = await Promise.all([
+  const total = input + output
+  const pipeline = r.pipeline()
+  pipeline.incrby(redisKey(scope, id, key, "tokens"), total)
+  pipeline.incrby(redisKey(scope, id, key, "input"), input)
+  pipeline.incrby(redisKey(scope, id, key, "output"), output)
+  pipeline.incr(redisKey(scope, id, key, "requests"))
+  pipeline.incrbyfloat(redisKey(scope, id, key, "cost"), cost)
+  const ttl = period === "daily" ? 86400 * 2 : 86400 * 35
+  for (const m of ["tokens", "input", "output", "requests", "cost"])
+    pipeline.expire(redisKey(scope, id, key, m), ttl)
+  await pipeline.exec()
+}
+
+export type Usage = {
+  tokens: number
+  input: number
+  output: number
+  requests: number
+  cost: number
+}
+
+export async function usage(scope: string, id: string, period: string): Promise<Usage> {
+  const r = redis()
+  const key = periodKey(period)
+  const [tokens, input, output, requests, cost] = await Promise.all([
     r.get(redisKey(scope, id, key, "tokens")),
+    r.get(redisKey(scope, id, key, "input")),
+    r.get(redisKey(scope, id, key, "output")),
     r.get(redisKey(scope, id, key, "requests")),
     r.get(redisKey(scope, id, key, "cost")),
   ])
   return {
     tokens: Number(tokens ?? 0),
+    input: Number(input ?? 0),
+    output: Number(output ?? 0),
     requests: Number(requests ?? 0),
     cost: Number(cost ?? 0),
   }

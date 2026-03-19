@@ -18,8 +18,18 @@ type User = {
 }
 
 const PAGE_SIZE = 20
-const ROLES = ["全部", "developer", "finance", "manager", "admin"] as const
-const STATUSES = ["全部", "active", "disabled"] as const
+const ROLES = [
+  { value: "全部", label: "角色: 全部" },
+  { value: "developer", label: "开发者" },
+  { value: "finance", label: "财务" },
+  { value: "manager", label: "管理者" },
+  { value: "admin", label: "管理员" },
+] as const
+const STATUSES = [
+  { value: "全部", label: "状态: 全部" },
+  { value: "active", label: "正常" },
+  { value: "disabled", label: "已禁用" },
+] as const
 
 const sel = "h-9 px-3 rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] text-sm"
 
@@ -51,7 +61,7 @@ export default function Users() {
       if (p.f.q) url += `&search=${encodeURIComponent(p.f.q)}`
       if (p.r !== "全部") url += `&role=${encodeURIComponent(p.r)}`
       if (p.s !== "全部") url += `&status=${encodeURIComponent(p.s)}`
-      return api.get<User[]>(url)
+      return api.get<{ users: User[] } | User[]>(url).then((r) => (Array.isArray(r) ? r : r.users ?? []))
     }
   )
 
@@ -75,10 +85,10 @@ export default function Users() {
           onKeyDown={(e) => e.key === "Enter" && applySearch()}
         />
         <select class={sel} value={role()} onChange={(e) => setRole(e.currentTarget.value)}>
-          {ROLES.map((r) => <option value={r}>{r === "全部" ? "角色: 全部" : r}</option>)}
+          {ROLES.map((r) => <option value={r.value}>{r.label}</option>)}
         </select>
         <select class={sel} value={status()} onChange={(e) => setStatus(e.currentTarget.value)}>
-          {STATUSES.map((s) => <option value={s}>{s === "全部" ? "状态: 全部" : s}</option>)}
+          {STATUSES.map((s) => <option value={s.value}>{s.label}</option>)}
         </select>
         <Button variant="secondary" size="sm" onClick={applySearch}>
           搜索

@@ -24,6 +24,8 @@ billing.get("/quotas-with-usage", requireRole("admin", "manager"), async (c) => 
       return {
         ...cfg,
         tokens_used: u.tokens,
+        input_used: u.input,
+        output_used: u.output,
         requests_used: u.requests,
         cost_used: u.cost,
       }
@@ -39,7 +41,7 @@ billing.post(
     "json",
     z.object({
       scope_type: z.string(),
-      scope_id: z.string(),
+      scope_id: z.string().default(""),
       period: z.string(),
       max_tokens: z.number(),
       max_requests: z.number().optional(),
@@ -72,11 +74,23 @@ billing.get("/me", async (c) => {
   const user = c.get("user")
   const db = database()
   const configs = await quota.listConfigs(db)
-  const userQuota = configs.find((q) => q.scope_type === "user" && q.scope_id === user.sub)
-  const period = userQuota?.period ?? "monthly"
+  const cfg = configs.find((q) => q.scope_type === "user" && q.scope_id === user.sub)
+    ?? configs.find((q) => q.scope_type === "global")
+  const period = cfg?.period ?? "monthly"
   const u = await quota.usage("user", user.sub, period)
-  const max = userQuota?.max_tokens ?? 1_000_000
-  return c.json({ tokens_used: u.tokens, max_tokens: max, pct: max > 0 ? Math.min(100, (u.tokens / max) * 100) : 0 })
+  const max = cfg?.max_tokens ?? 1_000_000
+  return c.json({
+    tokens_used: u.tokens,
+    input_used: u.input,
+    output_used: u.output,
+    requests_used: u.requests,
+    cost_used: u.cost,
+    max_tokens: max,
+    max_requests: cfg?.max_requests ?? null,
+    max_cost_usd: cfg?.max_cost_usd ? Number(cfg.max_cost_usd) : null,
+    pct: max > 0 ? Math.min(100, (u.tokens / max) * 100) : 0,
+    period,
+  })
 })
 
 billing.get("/usage/:scope/:id", requireRole("admin", "manager"), async (c) => {

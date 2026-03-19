@@ -55,14 +55,23 @@ export function Sidebar() {
     <aside
       class={`${w()} hidden md:flex flex-col border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)] transition-all duration-200 shrink-0`}
     >
-      <div class="h-12 flex items-center justify-between px-3 border-b border-[var(--color-border)]">
-        {!collapsed() && <span class="font-semibold text-[var(--color-text-primary)]">OpenCode</span>}
+      <div class="h-14 flex items-center justify-between px-3 border-b border-[var(--color-border)]">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <svg width="28" height="28" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" class="shrink-0">
+            <rect width="48" height="48" rx="14" fill="url(#sg)" />
+            <path d="M18 16l-6 8 6 8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M30 16l6 8-6 8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M27 14l-6 20" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.7" />
+            <defs><linearGradient id="sg" x1="0" y1="0" x2="48" y2="48"><stop stop-color="#3b82f6" /><stop offset="1" stop-color="#1d4ed8" /></linearGradient></defs>
+          </svg>
+          {!collapsed() && <span class="font-bold text-[15px] text-[var(--color-text-primary)] tracking-tight">OpenCode</span>}
+        </div>
         <button
-          class="p-2 rounded hover:bg-[var(--color-muted)]"
+          class="p-1.5 rounded-[var(--radius-md)] hover:bg-[var(--color-muted)] text-[var(--color-text-muted)]"
           onClick={() => setCollapsed((c) => !c)}
           aria-label={collapsed() ? "展开" : "折叠"}
         >
-          {collapsed() ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          {collapsed() ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
       <nav class="flex-1 py-2 overflow-y-auto" aria-label="主导航">
