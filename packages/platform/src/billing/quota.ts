@@ -23,9 +23,14 @@ export async function checkQuota(
 
   const configs = await db.select().from(quota_config).where(eq(quota_config.enabled, true))
 
+  const labels: Record<string, string> = {
+    user: "您的个人",
+    department: "部门",
+    global: "全局",
+  }
+
   for (const cfg of configs) {
     const key = periodKey(cfg.period, now)
-    const rk = redisKey(cfg.scope_type, cfg.scope_id, key, "tokens")
 
     const isRelevant =
       cfg.scope_type === "global" ||
@@ -34,16 +39,38 @@ export async function checkQuota(
 
     if (!isRelevant) continue
 
+    const prefix = labels[cfg.scope_type] ?? ""
+    const span = cfg.period === "daily" ? "今日" : "本月"
+
+    const rk = redisKey(cfg.scope_type, cfg.scope_id, key, "tokens")
     const used = Number((await r.get(rk)) ?? "0")
     if (used >= cfg.max_tokens) {
-      const labels: Record<string, string> = {
-        user: "您的个人",
-        department: "部门",
-        global: "全局",
-      }
       return {
         allowed: false,
-        reason: `${labels[cfg.scope_type] ?? ""}${cfg.period === "daily" ? "今日" : "本月"} Token 配额已用完 (${used.toLocaleString()} / ${cfg.max_tokens.toLocaleString()})`,
+        reason: `${prefix}${span} Token 配额已用完 (${used.toLocaleString()} / ${cfg.max_tokens.toLocaleString()})`,
+      }
+    }
+
+    if (cfg.max_requests) {
+      const rk2 = redisKey(cfg.scope_type, cfg.scope_id, key, "requests")
+      const reqs = Number((await r.get(rk2)) ?? "0")
+      if (reqs >= cfg.max_requests) {
+        return {
+          allowed: false,
+          reason: `${prefix}${span}请求次数配额已用完 (${reqs.toLocaleString()} / ${cfg.max_requests.toLocaleString()})`,
+        }
+      }
+    }
+
+    if (cfg.max_cost_usd) {
+      const rk3 = redisKey(cfg.scope_type, cfg.scope_id, key, "cost")
+      const cost = Number((await r.get(rk3)) ?? "0")
+      const limit = Number(cfg.max_cost_usd)
+      if (cost >= limit) {
+        return {
+          allowed: false,
+          reason: `${prefix}${span}费用配额已用完 ($${cost.toFixed(2)} / $${limit.toFixed(2)})`,
+        }
       }
     }
   }

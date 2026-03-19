@@ -44,6 +44,7 @@ export const handlers = {
       type: string
       session_id?: string
       message?: string
+      model_id?: string
     }
     switch (msg.type) {
       case "chat": {
@@ -53,6 +54,7 @@ export const handlers = {
           session_id: sid,
           message: msg.message ?? "",
           source: "web",
+          model_id: msg.model_id,
           callback: { ws_id: user.sub },
         })
         subscribe(ws, sid)

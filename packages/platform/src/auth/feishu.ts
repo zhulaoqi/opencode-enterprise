@@ -31,33 +31,45 @@ async function tenantToken(): Promise<string> {
   return token.value
 }
 
-export async function exchangeCode(code: string): Promise<{ access_token: string; user_id: string }> {
-  const tk = await tenantToken()
-  const res = await fetch(`${BASE}/authen/v1/oidc/access_token`, {
+export async function exchangeCode(code: string, redirect: string): Promise<{ access_token: string }> {
+  const cfg = env()
+  const body = {
+    grant_type: "authorization_code",
+    client_id: cfg.FEISHU_APP_ID,
+    client_secret: cfg.FEISHU_APP_SECRET,
+    code,
+    redirect_uri: redirect,
+  }
+  console.log("[feishu] POST authen/v2/oauth/token client_id:", cfg.FEISHU_APP_ID, "redirect_uri:", redirect)
+  const res = await fetch(`${BASE}/authen/v2/oauth/token`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${tk}`,
-    },
-    body: JSON.stringify({ grant_type: "authorization_code", code }),
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify(body),
   })
   const data = (await res.json()) as any
-  return { access_token: data.data.access_token, user_id: data.data.user_id }
+  console.log("[feishu] token response code:", data.code, "error:", data.error, "desc:", data.error_description)
+  if (data.code !== 0) throw new Error(data.error_description ?? data.error ?? `feishu token error code: ${data.code}`)
+  if (!data.access_token) throw new Error("feishu returned empty access_token")
+  return { access_token: data.access_token }
 }
 
 export async function userInfo(tk: string): Promise<UserInfo> {
   const res = await fetch(`${BASE}/authen/v1/user_info`, {
     headers: { Authorization: `Bearer ${tk}` },
   })
-  const data = (await res.json()) as any
+  const raw = (await res.json()) as any
+  console.log("[feishu] user_info response code:", raw.code, "msg:", raw.msg)
+  if (raw.code !== 0) throw new Error(raw.msg ?? `feishu user_info error: ${raw.code}`)
+  const d = raw.data
+  if (!d) throw new Error("feishu user_info returned no data")
   return {
-    user_id: data.data.user_id,
-    union_id: data.data.union_id,
-    name: data.data.name,
-    email: data.data.email ?? "",
-    avatar_url: data.data.avatar_url ?? "",
-    department_ids: data.data.department_ids ?? [],
-    job_level_id: data.data.job_level_id ?? "",
+    user_id: d.user_id ?? d.open_id ?? "",
+    union_id: d.union_id ?? "",
+    name: d.name ?? "",
+    email: d.email ?? d.enterprise_email ?? "",
+    avatar_url: d.avatar_url ?? "",
+    department_ids: d.department_ids ?? [],
+    job_level_id: d.job_level_id ?? "",
   }
 }
 

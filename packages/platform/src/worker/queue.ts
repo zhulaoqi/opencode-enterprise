@@ -23,6 +23,7 @@ export type ChatJob = {
   session_id: string
   message: string
   source: "feishu" | "dingtalk" | "wecom" | "web"
+  model_id?: string
   callback: {
     chat_id?: string
     message_id?: string

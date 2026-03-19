@@ -15,6 +15,13 @@ const healthVariant = (s?: string) => {
   return "default" as const
 }
 
+function authBadge(m: McpItem) {
+  if (m.authorized) return <Badge variant="success">已授权</Badge>
+  if (m.visibility === "PUBLIC") return <Badge variant="success">公开</Badge>
+  if (m.accessible) return <Badge variant="warning">审批中</Badge>
+  return <Badge variant="default">可申请</Badge>
+}
+
 export function McpCard(props: Props) {
   const m = () => props.mcp
   return (
@@ -35,9 +42,7 @@ export function McpCard(props: Props) {
               {(m().tags ?? []).slice(0, 2).map((t) => (
                 <Badge variant="info">{t}</Badge>
               ))}
-              {props.showAuth && m().visibility === "SHARED" && !m().authorized && (
-                <Badge variant="warning">请求授权</Badge>
-              )}
+              {props.showAuth && authBadge(m())}
             </div>
             <div class="flex gap-4 mt-2 text-xs text-[var(--color-text-muted)]">
               {m().tool_count != null && <span>{m().tool_count} 工具</span>}

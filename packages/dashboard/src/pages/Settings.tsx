@@ -1,5 +1,5 @@
 import { theme, setTheme, resolved } from "../stores/theme"
-import { user } from "../stores/auth"
+import { user, logout } from "../stores/auth"
 import { Avatar } from "../components/ui/Avatar"
 import { Card } from "../components/ui/Card"
 
@@ -33,6 +33,14 @@ export default function Settings() {
           <p class="text-xs text-[var(--color-text-muted)] mt-2">
             当前: {resolved() === "dark" ? "深色" : "浅色"}
           </p>
+        </div>
+        <div class="pt-4 border-t border-[var(--color-border)]">
+          <button
+            class="px-4 py-2 rounded-[var(--radius-md)] text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+            onClick={logout}
+          >
+            退出登录
+          </button>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm"
-import { role, user_role, department_role, type RolePermission } from "./role.sql"
+import { role, user_role, type RolePermission } from "./role.sql"
 import type { Database } from "@/db"
 import { merge } from "./permission"
 
@@ -8,22 +8,12 @@ export async function seed(db: Database) {
     {
       name: "developer",
       display_name: "Developer",
-      permissions: [
-        { type: "mcp_tool", pattern: "git_*", action: "allow" },
-        { type: "mcp_tool", pattern: "jira_*", action: "allow" },
-        { type: "mcp_tool", pattern: "ci_cd_*", action: "allow" },
-        { type: "mcp_server", pattern: "git", action: "allow" },
-        { type: "mcp_server", pattern: "jira", action: "allow" },
-        { type: "feature", pattern: "chat", action: "allow" },
-      ],
+      permissions: [{ type: "feature", pattern: "chat", action: "allow" }],
     },
     {
       name: "finance",
       display_name: "Finance",
       permissions: [
-        { type: "mcp_tool", pattern: "erp_*", action: "allow" },
-        { type: "mcp_tool", pattern: "expense_*", action: "allow" },
-        { type: "mcp_server", pattern: "erp", action: "allow" },
         { type: "feature", pattern: "chat", action: "allow" },
         { type: "feature", pattern: "approval", action: "allow" },
       ],
@@ -40,11 +30,7 @@ export async function seed(db: Database) {
     {
       name: "admin",
       display_name: "Administrator",
-      permissions: [
-        { type: "mcp_tool", pattern: "*", action: "allow" },
-        { type: "mcp_server", pattern: "*", action: "allow" },
-        { type: "feature", pattern: "*", action: "allow" },
-      ],
+      permissions: [{ type: "feature", pattern: "*", action: "allow" }],
     },
   ]
   for (const r of defaults) {
@@ -52,40 +38,21 @@ export async function seed(db: Database) {
   }
 }
 
-export async function userRoleNames(db: Database, userId: string, deptIds: string[]): Promise<string[]> {
-  const userRoles = await db.select({ role_id: user_role.role_id }).from(user_role).where(eq(user_role.user_id, userId))
-
-  const deptRoles =
-    deptIds.length > 0
-      ? await db
-          .select({ role_id: department_role.role_id })
-          .from(department_role)
-          .where(inArray(department_role.department_id, deptIds))
-      : []
-
-  const ids = [...new Set([...userRoles, ...deptRoles].map((r) => r.role_id))]
+export async function userRoleNames(db: Database, userId: string): Promise<string[]> {
+  const rows = await db.select({ role_id: user_role.role_id }).from(user_role).where(eq(user_role.user_id, userId))
+  const ids = rows.map((r) => r.role_id)
   if (ids.length === 0) return []
-
   const roles = await db.select({ name: role.name }).from(role).where(inArray(role.id, ids))
   return roles.map((r) => r.name)
 }
 
-export async function userPermissions(db: Database, userId: string, deptIds: string[]): Promise<RolePermission[]> {
-  const userRoles = await db.select({ role_id: user_role.role_id }).from(user_role).where(eq(user_role.user_id, userId))
-
-  const deptRoles =
-    deptIds.length > 0
-      ? await db
-          .select({ role_id: department_role.role_id })
-          .from(department_role)
-          .where(inArray(department_role.department_id, deptIds))
-      : []
-
-  const ids = [...new Set([...userRoles, ...deptRoles].map((r) => r.role_id))]
-  if (ids.length === 0) return []
-
-  const roles = await db.select().from(role).where(inArray(role.id, ids))
-  return merge(...roles.map((r) => r.permissions))
+export async function bootstrap(db: Database, userId: string) {
+  const admin = await db.select().from(role).where(eq(role.name, "admin")).then((r) => r[0])
+  if (!admin) return
+  const existing = await db.select().from(user_role).where(eq(user_role.role_id, admin.id))
+  if (existing.length > 0) return
+  console.log("[rbac] no admin users found, bootstrapping first user as admin:", userId)
+  await db.insert(user_role).values({ user_id: userId, role_id: admin.id }).onConflictDoNothing()
 }
 
 export function assignRole(db: Database, userId: string, roleId: string) {

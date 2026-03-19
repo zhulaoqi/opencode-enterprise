@@ -9,9 +9,11 @@ import { ToolRanking } from "../components/dashboard/ToolRanking"
 import { fmtNum } from "../lib/format"
 
 type Range = "day" | "week" | "month" | "quarter"
+const DAYS: Record<Range, number> = { day: 1, week: 7, month: 30, quarter: 90 }
 
 export default function Dashboard() {
   const [range, setRange] = createSignal<Range>("month")
+  const days = () => DAYS[range()]
   const [overview] = createResource(
     () => ({ r: range() }),
     ({ r }) =>
@@ -23,8 +25,8 @@ export default function Dashboard() {
       }>(`/dashboard/overview?range=${r}`)
   )
   const [dept] = createResource(() => api.get<{ departments: { scope_id: string; tokens: number }[] }>("/dashboard/by-department"))
-  const [tools] = createResource(() => api.get<{ tools: { tool: string; calls: number }[] }>("/dashboard/top-tools?days=30"))
-  const [trend] = createResource(() => api.get<{ trend: { day: string; tokens_in: number; tokens_out: number }[] }>("/dashboard/trend?days=30"))
+  const [tools] = createResource(days, (d) => api.get<{ tools: { tool: string; calls: number }[] }>(`/dashboard/top-tools?days=${d}`))
+  const [trend] = createResource(days, (d) => api.get<{ trend: { day: string; tokens_in: number; tokens_out: number }[] }>(`/dashboard/trend?days=${d}`))
 
   const trendData = () => {
     const t = trend()?.trend
@@ -49,7 +51,7 @@ export default function Dashboard() {
         <KpiCard label="会话数" value={overview()?.total_sessions ?? 0} loading={overview.loading} />
       </div>
       <Card class="mb-6">
-        <h3 class="font-semibold text-[var(--color-text-primary)] mb-4">Token 趋势 (30天)</h3>
+        <h3 class="font-semibold text-[var(--color-text-primary)] mb-4">Token 趋势 ({days()}天)</h3>
         <TokenChart data={trendData()} loading={trend.loading} />
       </Card>
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">

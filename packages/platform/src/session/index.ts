@@ -83,6 +83,14 @@ export async function logTool(
   return log
 }
 
+export async function get(db: Database, id: string): Promise<Session | undefined> {
+  const [row] = await db
+    .select()
+    .from(enterprise_session)
+    .where(and(eq(enterprise_session.id, id), ne(enterprise_session.status, "deleted")))
+  return row
+}
+
 export function listSessions(db: Database, userId: string, opts?: { limit?: number; offset?: number }) {
   let query = db
     .select()

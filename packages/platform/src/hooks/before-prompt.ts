@@ -22,7 +22,7 @@ export async function beforePrompt(input: {
 
   const uid = input.userId
   const roles = await import("@/rbac/role").then((m) =>
-    m.userRoleNames(db, uid, deptIds),
+    m.userRoleNames(db, uid),
   )
   const cfg = configForRole(roles)
   const rlKey = slidingWindow.key("user", input.userId, "rpm")

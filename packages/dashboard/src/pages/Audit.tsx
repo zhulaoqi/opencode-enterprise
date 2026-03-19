@@ -18,27 +18,35 @@ type AuditLog = {
   [key: string]: unknown
 }
 
+const LIMIT = 20
+
 export default function Audit() {
   const [userId, setUserId] = createSignal("")
   const [action, setAction] = createSignal("")
   const [from, setFrom] = createSignal("")
   const [to, setTo] = createSignal("")
+  const [page, setPage] = createSignal(1)
   const [filter, setFilter] = createSignal({ u: "", a: "", from: "", to: "" })
   const [expanded, setExpanded] = createSignal<Record<string, boolean>>({})
 
   const [data] = createResource(
-    () => filter(),
+    () => ({ ...filter(), page: page() }),
     (f) => {
       const params = new URLSearchParams()
       if (f.u) params.set("user_id", f.u)
       if (f.a) params.set("action", f.a)
       if (f.from) params.set("from", f.from)
       if (f.to) params.set("to", f.to)
+      params.set("limit", String(LIMIT))
+      params.set("offset", String((f.page - 1) * LIMIT))
       return api.get<{ audit: AuditLog[] }>(`/billing/audit?${params}`)
     }
   )
 
-  const apply = () => setFilter({ u: userId(), a: action(), from: from(), to: to() })
+  const apply = () => {
+    setPage(1)
+    setFilter({ u: userId(), a: action(), from: from(), to: to() })
+  }
   const isError = (a: string) => a.toLowerCase().includes("error") || a === "denied"
   const toggle = (id: string) => setExpanded((e) => ({ ...e, [id]: !e[id] }))
 
@@ -151,6 +159,20 @@ export default function Audit() {
           </div>
         </Card>
       ) : data() && <p class="text-[var(--color-text-muted)]">暂无审计记录</p>}
+
+      <Show when={(data()?.audit?.length ?? 0) > 0}>
+        <div class="flex justify-between items-center mt-4">
+          <span class="text-sm text-[var(--color-text-muted)]">第 {page()} 页</span>
+          <div class="flex gap-2">
+            <Button variant="ghost" size="sm" disabled={page() === 1} onClick={() => setPage((p) => p - 1)}>
+              上一页
+            </Button>
+            <Button variant="ghost" size="sm" disabled={(data()?.audit?.length ?? 0) < LIMIT} onClick={() => setPage((p) => p + 1)}>
+              下一页
+            </Button>
+          </div>
+        </div>
+      </Show>
     </div>
   )
 }

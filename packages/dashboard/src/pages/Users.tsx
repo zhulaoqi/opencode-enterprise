@@ -1,4 +1,5 @@
 import { createResource, createSignal } from "solid-js"
+import { useNavigate } from "@solidjs/router"
 import { api } from "../lib/api"
 import { Card } from "../components/ui/Card"
 import { Skeleton } from "../components/ui/Skeleton"
@@ -7,7 +8,6 @@ import { Avatar } from "../components/ui/Avatar"
 import { Dropdown } from "../components/ui/Dropdown"
 import { Button } from "../components/ui/Button"
 import { RoleEditor } from "../components/admin/RoleEditor"
-import { notify } from "../stores/notification"
 
 type User = {
   internal_id: string
@@ -38,6 +38,7 @@ function csv(rows: User[]) {
 }
 
 export default function Users() {
+  const nav = useNavigate()
   const [search, setSearch] = createSignal("")
   const [role, setRole] = createSignal("全部")
   const [status, setStatus] = createSignal("全部")
@@ -132,13 +133,13 @@ export default function Users() {
                       </button>
                       <button
                         class="w-full px-4 py-2 text-left text-sm hover:bg-[var(--color-muted)]"
-                        onClick={() => notify("info", "功能开发中")}
+                        onClick={() => nav(`/admin/quotas?scope=user&id=${u.internal_id}`)}
                       >
                         调整配额
                       </button>
                       <button
                         class="w-full px-4 py-2 text-left text-sm hover:bg-[var(--color-muted)]"
-                        onClick={() => notify("info", "功能开发中")}
+                        onClick={() => nav(`/admin/audit?user_id=${u.internal_id}`)}
                       >
                         查看记录
                       </button>

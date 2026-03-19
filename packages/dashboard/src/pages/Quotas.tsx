@@ -114,22 +114,35 @@ export default function Quotas() {
                     <div class="pl-6 pb-2 space-y-1">
                       <For each={g.items}>
                         {(q) => (
-                          <div
-                            class="flex flex-col gap-1.5 py-2.5 px-3 rounded-[var(--radius-md)] bg-[var(--color-bg-sunken)] cursor-pointer hover:bg-[var(--color-border)] transition-colors"
-                            onClick={() => openEdit(q)}
-                          >
-                            <div class="flex justify-between items-center text-sm">
-                              <span class="font-mono text-xs truncate max-w-[200px]" title={q.scope_id}>
-                                {q.scope_id || "(默认)"}
-                              </span>
-                              <span class="text-xs text-[var(--color-text-muted)]">{periodLabel(q.period)}配额</span>
+                          <div class="flex items-center gap-2">
+                            <div
+                              class="flex-1 flex flex-col gap-1.5 py-2.5 px-3 rounded-[var(--radius-md)] bg-[var(--color-bg-sunken)] cursor-pointer hover:bg-[var(--color-border)] transition-colors"
+                              onClick={() => openEdit(q)}
+                            >
+                              <div class="flex justify-between items-center text-sm">
+                                <span class="font-mono text-xs truncate max-w-[200px]" title={q.scope_id}>
+                                  {q.scope_id || "(默认)"}
+                                </span>
+                                <span class="text-xs text-[var(--color-text-muted)]">{periodLabel(q.period)}配额</span>
+                              </div>
+                              <div class="flex items-center gap-3">
+                                <ProgressBar value={q.tokens_used} max={q.max_tokens} class="flex-1" />
+                                <span class="text-xs tabular-nums shrink-0 text-[var(--color-text-secondary)]">
+                                  {fmtNum(q.tokens_used)} / {fmtNum(q.max_tokens)}
+                                </span>
+                              </div>
                             </div>
-                            <div class="flex items-center gap-3">
-                              <ProgressBar value={q.tokens_used} max={q.max_tokens} class="flex-1" />
-                              <span class="text-xs tabular-nums shrink-0 text-[var(--color-text-secondary)]">
-                                {fmtNum(q.tokens_used)} / {fmtNum(q.max_tokens)}
-                              </span>
-                            </div>
+                            <button
+                              class="shrink-0 px-2 py-1 text-xs rounded-[var(--radius-md)] text-[var(--color-error)] hover:bg-[var(--color-error)] hover:text-white transition-colors"
+                              onClick={async (e) => {
+                                e.stopPropagation()
+                                if (!window.confirm("确定删除此配额规则？")) return
+                                await api.del(`/billing/quotas/${q.id}`)
+                                refetch()
+                              }}
+                            >
+                              删除
+                            </button>
                           </div>
                         )}
                       </For>

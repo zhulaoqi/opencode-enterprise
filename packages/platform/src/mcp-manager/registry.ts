@@ -1,9 +1,8 @@
-import { eq, and, desc } from "drizzle-orm"
-import { mcp_registry, mcp_authorization, mcp_group } from "./registry.sql"
+import { eq, desc } from "drizzle-orm"
+import { mcp_registry, mcp_group } from "./registry.sql"
 import type { Database } from "@/db"
 
 export type McpEntry = typeof mcp_registry.$inferSelect
-export type McpAuth = typeof mcp_authorization.$inferSelect
 export type Visibility = "PUBLIC" | "PRIVATE" | "SHARED"
 
 export function create(db: Database, input: typeof mcp_registry.$inferInsert) {
@@ -36,29 +35,6 @@ export function listAll(db: Database, opts?: { visibility?: Visibility; enabled?
   if (opts?.visibility) query = query.where(eq(mcp_registry.visibility, opts.visibility)) as any
   if (opts?.enabled !== undefined) query = query.where(eq(mcp_registry.enabled, opts.enabled)) as any
   return query.orderBy(desc(mcp_registry.updated_at))
-}
-
-export function authorize(db: Database, input: typeof mcp_authorization.$inferInsert) {
-  return db
-    .insert(mcp_authorization)
-    .values(input)
-    .onConflictDoNothing()
-    .returning()
-    .then((r) => r[0])
-}
-
-export function revoke(db: Database, mcpId: string, granteeType: string, granteeId: string) {
-  return db.delete(mcp_authorization).where(
-    and(
-      eq(mcp_authorization.mcp_id, mcpId),
-      eq(mcp_authorization.grantee_type, granteeType),
-      eq(mcp_authorization.grantee_id, granteeId),
-    ),
-  )
-}
-
-export function authorizations(db: Database, mcpId: string) {
-  return db.select().from(mcp_authorization).where(eq(mcp_authorization.mcp_id, mcpId))
 }
 
 export function updateHealth(db: Database, id: string, status: string) {

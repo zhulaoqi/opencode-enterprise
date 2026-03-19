@@ -5,6 +5,7 @@ import { auth, requireRole } from "@/auth/middleware"
 import { database } from "@/db"
 import * as registry from "@/mcp-manager/registry"
 import * as resolver from "@/mcp-manager/resolver"
+import * as member from "@/mcp-manager/member"
 import * as watcher from "@/mcp-manager/watcher"
 import * as dashboard from "@/billing/dashboard"
 
@@ -15,8 +16,6 @@ mcp.get("/market", async (c) => {
   const db = database()
   const items = await resolver.market(db, {
     internal_id: user.sub,
-    roles: user.roles,
-    dept_ids: user.depts,
   })
   return c.json({ mcps: items })
 })
@@ -29,33 +28,34 @@ mcp.get("/groups", async (c) => {
 
 mcp.get("/:id", async (c) => {
   const db = database()
-  const mcpEntry = await registry.byId(db, c.req.param("id"))
-  if (!mcpEntry) return c.json({ error: "Not found" }, 404)
-  const auths = await registry.authorizations(db, mcpEntry.id)
-  return c.json({ mcp: mcpEntry, authorizations: auths })
+  const id = c.req.param("id")
+  const entry = await registry.byId(db, id)
+  if (!entry) return c.json({ error: "Not found" }, 404)
+  const list = await member.members(db, entry.id)
+  return c.json({ mcp: entry, members: list })
 })
 
 mcp.get("/:id/health", async (c) => {
   const db = database()
-  const mcpEntry = await registry.byId(db, c.req.param("id"))
-  if (!mcpEntry) return c.json({ error: "Not found" }, 404)
-  return c.json({ status: mcpEntry.health_status, checked_at: mcpEntry.last_health_at })
+  const entry = await registry.byId(db, c.req.param("id"))
+  if (!entry) return c.json({ error: "Not found" }, 404)
+  return c.json({ status: entry.health_status, checked_at: entry.last_health_at })
 })
 
 mcp.get("/:id/usage", async (c) => {
   const db = database()
-  const mcpEntry = await registry.byId(db, c.req.param("id"))
-  if (!mcpEntry) return c.json({ error: "Not found" }, 404)
+  const entry = await registry.byId(db, c.req.param("id"))
+  if (!entry) return c.json({ error: "Not found" }, 404)
   const days = Number(c.req.query("days") ?? 7)
-  const trend = await dashboard.mcpUsageTrend(db, mcpEntry.name, days)
+  const trend = await dashboard.mcpUsageTrend(db, entry.name, days)
   return c.json({ trend })
 })
 
 mcp.get("/:id/tools", async (c) => {
   const db = database()
-  const mcpEntry = await registry.byId(db, c.req.param("id"))
-  if (!mcpEntry) return c.json({ error: "Not found" }, 404)
-  const tools = await dashboard.mcpTools(db, mcpEntry.name)
+  const entry = await registry.byId(db, c.req.param("id"))
+  if (!entry) return c.json({ error: "Not found" }, 404)
+  const tools = await dashboard.mcpTools(db, entry.name)
   return c.json({ tools })
 })
 
@@ -79,8 +79,8 @@ mcp.post(
     const user = c.get("user")
     const body = c.req.valid("json")
     const db = database()
-    const mcpEntry = await registry.create(db, { ...body, owner_id: user.sub })
-    return c.json({ mcp: mcpEntry }, 201)
+    const entry = await registry.create(db, { ...body, owner_id: user.sub })
+    return c.json({ mcp: entry }, 201)
   },
 )
 
@@ -122,58 +122,98 @@ mcp.delete("/:id", async (c) => {
   return c.json({ ok: true })
 })
 
+mcp.get("/:id/members", async (c) => {
+  const db = database()
+  const id = c.req.param("id")
+  const list = await member.members(db, id)
+  return c.json({ members: list })
+})
+
 mcp.post(
-  "/:id/authorize",
+  "/:id/members",
   zValidator(
     "json",
     z.object({
-      grantee_type: z.enum(["user", "role", "department"]),
-      grantee_id: z.string(),
-      permission: z.string().optional(),
+      user_ids: z.array(z.string()),
+      role: z.string().optional(),
     }),
   ),
   async (c) => {
     const user = c.get("user")
     const db = database()
-    const existing = await registry.byId(db, c.req.param("id"))
-    if (!existing) return c.json({ error: "Not found" }, 404)
-    if (existing.owner_id !== user.sub && !user.roles.includes("admin")) {
-      return c.json({ error: "Forbidden" }, 403)
-    }
+    const id = c.req.param("id")
+    const admin = await member.isAdmin(db, id, user.sub)
+    if (!admin) return c.json({ error: "Forbidden" }, 403)
     const body = c.req.valid("json")
-    const authEntry = await registry.authorize(db, {
-      mcp_id: c.req.param("id"),
-      grantee_type: body.grantee_type,
-      grantee_id: body.grantee_id,
-      permission: body.permission ?? "use",
-      granted_by: user.sub,
-    })
-    await watcher.publish(body.grantee_id, [existing.name], [])
-    return c.json({ authorization: authEntry }, 201)
+    await member.add(db, id, body.user_ids, body.role ?? "user", user.sub)
+    return c.json({ ok: true }, 201)
   },
 )
 
-mcp.delete(
-  "/:id/authorize",
-  zValidator(
-    "json",
-    z.object({
-      grantee_type: z.string(),
-      grantee_id: z.string(),
-    }),
-  ),
+mcp.put(
+  "/:id/members/:uid",
+  zValidator("json", z.object({ role: z.string() })),
   async (c) => {
     const user = c.get("user")
     const db = database()
-    const existing = await registry.byId(db, c.req.param("id"))
-    if (!existing) return c.json({ error: "Not found" }, 404)
-    if (existing.owner_id !== user.sub && !user.roles.includes("admin")) {
-      return c.json({ error: "Forbidden" }, 403)
-    }
+    const id = c.req.param("id")
+    const admin = await member.isAdmin(db, id, user.sub)
+    if (!admin) return c.json({ error: "Forbidden" }, 403)
+    const uid = c.req.param("uid")
     const body = c.req.valid("json")
-    await registry.revoke(db, c.req.param("id"), body.grantee_type, body.grantee_id)
-    await watcher.publish(body.grantee_id, [], [existing.name])
-    return c.json({ ok: true })
+    const updated = await member.updateRole(db, id, uid, body.role)
+    return c.json({ member: updated })
+  },
+)
+
+mcp.delete("/:id/members/:uid", async (c) => {
+  const user = c.get("user")
+  const db = database()
+  const id = c.req.param("id")
+  const admin = await member.isAdmin(db, id, user.sub)
+  if (!admin) return c.json({ error: "Forbidden" }, 403)
+  const uid = c.req.param("uid")
+  await member.remove(db, id, uid)
+  return c.json({ ok: true })
 })
+
+mcp.post(
+  "/:id/apply",
+  zValidator("json", z.object({ reason: z.string().optional() })),
+  async (c) => {
+    const user = c.get("user")
+    const db = database()
+    const id = c.req.param("id")
+    const body = c.req.valid("json")
+    const app = await member.apply(db, id, user.sub, body.reason)
+    return c.json({ application: app }, 201)
+  },
+)
+
+mcp.get("/:id/applications", async (c) => {
+  const user = c.get("user")
+  const db = database()
+  const id = c.req.param("id")
+  const admin = await member.isAdmin(db, id, user.sub)
+  if (!admin) return c.json({ error: "Forbidden" }, 403)
+  const list = await member.applications(db, id)
+  return c.json({ applications: list })
+})
+
+mcp.put(
+  "/:id/applications/:aid",
+  zValidator("json", z.object({ approved: z.boolean() })),
+  async (c) => {
+    const user = c.get("user")
+    const db = database()
+    const id = c.req.param("id")
+    const admin = await member.isAdmin(db, id, user.sub)
+    if (!admin) return c.json({ error: "Forbidden" }, 403)
+    const aid = c.req.param("aid")
+    const body = c.req.valid("json")
+    await member.review(db, aid, body.approved, user.sub)
+    return c.json({ ok: true })
+  },
+)
 
 export { mcp as mcpRoutes }

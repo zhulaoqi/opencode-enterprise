@@ -89,7 +89,7 @@ async function process(job: Job<ChatJob>) {
     const text = typeof c === "object" && c && "text" in c ? String((c as { text?: unknown }).text ?? "") : String(c ?? "")
     return { role: m.role, content: { text } }
   })
-  const result = await agent.run(prev, data.message)
+  const result = await agent.run(prev, data.message, data.model_id)
 
   await onTokenUsage({
     sessionID: sess.id,

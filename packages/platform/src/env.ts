@@ -12,6 +12,7 @@ const schema = z.object({
   FEISHU_VERIFICATION_TOKEN: z.string().optional(),
   DASHBOARD_URL: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+  OPENAI_BASE_URL: z.string().optional(),
   LLM_MODEL: z.string().default("gpt-4o-mini"),
 })
 

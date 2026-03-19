@@ -36,12 +36,12 @@ export async function loadMessages(id: string) {
   setMessages(Array.isArray(rows) ? rows : [])
 }
 
-export function sendMessage(text: string) {
+export function sendMessage(text: string, model?: string) {
   const id = activeId()
   if (!id) return
   setIsStreaming(true)
   setStreaming("")
-  wsSend({ type: "chat", session_id: id, message: text })
+  wsSend({ type: "chat", session_id: id, message: text, ...(model && { model_id: model }) })
 }
 
 export function cancelStream() {

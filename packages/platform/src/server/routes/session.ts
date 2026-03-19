@@ -27,23 +27,31 @@ export const sessions = new Hono()
     },
   )
   .get("/:id", async (c) => {
+    const user = c.get("user")
     const db = database()
-    const msgs = await session.messages(db, c.req.param("id"))
+    const row = await session.get(db, c.req.param("id"))
+    if (!row || row.user_id !== user.sub) return c.json({ error: "Not found" }, 404)
+    const msgs = await session.messages(db, row.id)
     return c.json(msgs)
   })
   .put(
     "/:id",
     zValidator("json", z.object({ title: z.string().optional() })),
     async (c) => {
+      const user = c.get("user")
       const db = database()
-      const body = c.req.valid("json")
-      const row = await session.update(db, c.req.param("id"), body)
-      if (!row) return c.json({ error: "Not found" }, 404)
-      return c.json(row)
+      const row = await session.get(db, c.req.param("id"))
+      if (!row || row.user_id !== user.sub) return c.json({ error: "Not found" }, 404)
+      const updated = await session.update(db, row.id, c.req.valid("json"))
+      if (!updated) return c.json({ error: "Not found" }, 404)
+      return c.json(updated)
     },
   )
   .delete("/:id", async (c) => {
+    const user = c.get("user")
     const db = database()
-    await session.remove(db, c.req.param("id"))
+    const row = await session.get(db, c.req.param("id"))
+    if (!row || row.user_id !== user.sub) return c.json({ error: "Not found" }, 404)
+    await session.remove(db, row.id)
     return c.json({ ok: true })
   })

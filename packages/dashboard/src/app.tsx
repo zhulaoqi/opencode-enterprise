@@ -13,6 +13,7 @@ const Users = lazy(() => import("./pages/Users"))
 const Quotas = lazy(() => import("./pages/Quotas"))
 const Audit = lazy(() => import("./pages/Audit"))
 const Settings = lazy(() => import("./pages/Settings"))
+const Models = lazy(() => import("./pages/Models"))
 const NotFound = lazy(() => import("./pages/NotFound"))
 
 export function App() {
@@ -35,6 +36,7 @@ export function App() {
             <Route path="/admin/users" component={Users} />
             <Route path="/admin/quotas" component={Quotas} />
             <Route path="/admin/audit" component={Audit} />
+            <Route path="/admin/models" component={Models} />
             <Route path="/settings" component={Settings} />
           </Route>
         </Route>

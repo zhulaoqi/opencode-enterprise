@@ -5,10 +5,10 @@ import { env } from "@/env"
 import * as feishu from "@/auth/feishu"
 import * as identity from "@/auth/identity"
 import * as jwt from "@/auth/jwt"
-import { userPermissions } from "@/rbac/role"
+import * as rbac from "@/rbac/role"
 import { database } from "@/db"
 
-const FEISHU_AUTH_BASE = "https://open.feishu.cn/open-apis/authen/v1/authorize"
+const FEISHU_AUTH_BASE = "https://accounts.feishu.cn/open-apis/authen/v1/authorize"
 
 export const auth = new Hono()
   .get("/feishu/url", (c) => {
@@ -16,7 +16,7 @@ export const auth = new Hono()
     const origin = c.req.header("Origin") ?? c.req.header("Referer") ?? ""
     const base = cfg.DASHBOARD_URL ?? (origin ? new URL(origin).origin : "http://localhost:3200")
     const redirect = `${base}/login`
-    const url = `${FEISHU_AUTH_BASE}?app_id=${cfg.FEISHU_APP_ID}&redirect_uri=${encodeURIComponent(redirect)}&scope=contact:user.base:readonly,contact:user.email:readonly`
+    const url = `${FEISHU_AUTH_BASE}?client_id=${cfg.FEISHU_APP_ID}&redirect_uri=${encodeURIComponent(redirect)}&response_type=code`
     return c.json({ url })
   })
   .post(
@@ -27,42 +27,57 @@ export const auth = new Hono()
       const cfg = env()
       const db = database()
 
-      const { access_token } = await feishu.exchangeCode(code)
-      const info = await feishu.userInfo(access_token)
+      try {
+        const origin = c.req.header("Origin") ?? c.req.header("Referer") ?? ""
+        const base = cfg.DASHBOARD_URL ?? (origin ? new URL(origin).origin : "http://localhost:3200")
+        const redirect = `${base}/login`
 
-      const user = await identity.upsertFromFeishu(db, {
-        feishu_user_id: info.user_id,
-        feishu_union_id: info.union_id,
-        name: info.name,
-        email: info.email,
-        avatar_url: info.avatar_url,
-        department_ids: info.department_ids,
-        job_level: info.job_level_id,
-      })
+        console.log("[auth] exchanging code for token, redirect_uri:", redirect)
+        const { access_token } = await feishu.exchangeCode(code, redirect)
+        console.log("[auth] got access_token, fetching user info...")
+        const info = await feishu.userInfo(access_token)
+        console.log("[auth] user info:", info.name, info.user_id)
 
-      const perms = await userPermissions(db, user.internal_id, user.department_ids as string[])
-      const roles = perms.length > 0 ? ["authenticated"] : ["authenticated"]
+        const user = await identity.upsertFromFeishu(db, {
+          feishu_user_id: info.user_id,
+          feishu_union_id: info.union_id,
+          name: info.name,
+          email: info.email,
+          avatar_url: info.avatar_url,
+          department_ids: info.department_ids,
+          job_level: info.job_level_id,
+        })
 
-      const token = await jwt.sign(
-        {
-          sub: user.internal_id,
-          roles,
-          depts: user.department_ids as string[],
-          level: user.job_level ?? "",
-        },
-        cfg.JWT_SECRET,
-        cfg.JWT_EXPIRY,
-      )
+        await rbac.seed(db)
+        await rbac.bootstrap(db, user.internal_id)
+        const names = await rbac.userRoleNames(db, user.internal_id)
+        const roles = ["authenticated", ...names]
+        console.log("[auth] user roles:", roles)
 
-      return c.json({
-        token,
-        user: {
-          id: user.internal_id,
-          name: user.name,
-          email: user.email,
-          avatar: user.avatar_url,
-        },
-      })
+        const token = await jwt.sign(
+          {
+            sub: user.internal_id,
+            roles,
+            depts: user.department_ids as string[],
+            level: user.job_level ?? "",
+          },
+          cfg.JWT_SECRET,
+          cfg.JWT_EXPIRY,
+        )
+
+        return c.json({
+          token,
+          user: {
+            id: user.internal_id,
+            name: user.name,
+            email: user.email,
+            avatar: user.avatar_url,
+          },
+        })
+      } catch (err: any) {
+        console.error("[auth] callback failed:", err)
+        return c.json({ error: err?.message ?? "登录失败" }, 500)
+      }
     },
   )
   .post("/refresh", async (c) => {

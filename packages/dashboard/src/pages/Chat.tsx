@@ -1,9 +1,17 @@
-import { onMount } from "solid-js"
+import { onMount, createResource, Show, For } from "solid-js"
 import { SessionList } from "../components/chat/SessionList"
 import { MessageList } from "../components/chat/MessageList"
 import { ChatInput } from "../components/chat/ChatInput"
 import { loadSessions, activeId } from "../stores/chat"
 import { connect } from "../lib/ws"
+import { api } from "../lib/api"
+
+type McpItem = { id: string; name: string; authorized?: boolean }
+
+const [mcps] = createResource(
+  activeId,
+  () => api.get<McpItem[]>("/mcp/market").then((list) => list.filter((m) => m.authorized)),
+)
 
 export default function Chat() {
   onMount(() => {
@@ -20,6 +28,17 @@ export default function Chat() {
         {activeId() ? (
           <>
             <MessageList />
+            <Show when={mcps()?.length}>
+              <div class="flex flex-wrap gap-1.5 px-4 py-2 border-t border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+                <For each={mcps()}>
+                  {(m) => (
+                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-[var(--radius-sm)] bg-[var(--color-muted)] text-[var(--color-text-secondary)]">
+                      {m.name}
+                    </span>
+                  )}
+                </For>
+              </div>
+            </Show>
             <ChatInput />
           </>
         ) : (

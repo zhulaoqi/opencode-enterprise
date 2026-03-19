@@ -2,7 +2,7 @@ import { pgTable, uuid, varchar, text, jsonb, boolean, timestamp } from "drizzle
 import { identity_mapping } from "../auth/identity.sql"
 
 export type RolePermission = {
-  type: "mcp_tool" | "mcp_server" | "feature"
+  type: "feature"
   pattern: string
   action: "allow" | "deny"
 }
@@ -25,9 +25,3 @@ export const user_role = pgTable("user_role", {
   created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
 })
 
-export const department_role = pgTable("department_role", {
-  id: uuid().primaryKey().defaultRandom(),
-  department_id: varchar({ length: 128 }).notNull(),
-  role_id: uuid().notNull().references(() => role.id),
-  created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
-})

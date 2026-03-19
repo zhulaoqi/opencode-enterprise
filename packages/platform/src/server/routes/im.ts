@@ -3,11 +3,10 @@ import * as adapterRegistry from "@/im-adapter/registry"
 import * as identity from "@/auth/identity"
 import * as producer from "@/worker/producer"
 import { database } from "@/db"
+import { redis } from "@/redis"
 import { isVerification, challenge } from "@/im-adapter/feishu/webhook"
 
 const im = new Hono()
-
-const processed = new Set<string>()
 
 im.post("/feishu/webhook", async (c) => {
   const body = (await c.req.json()) as Record<string, unknown>
@@ -16,13 +15,11 @@ im.post("/feishu/webhook", async (c) => {
     return c.json({ challenge: challenge(body) })
   }
 
-  const eventId = (body?.header as any)?.event_id
-  if (eventId && processed.has(eventId)) {
-    return c.json({ ok: true })
-  }
+  const eventId = (body?.header as Record<string, unknown> | undefined)?.event_id as string | undefined
   if (eventId) {
-    processed.add(eventId)
-    setTimeout(() => processed.delete(eventId), 300_000)
+    const r = redis()
+    const dup = await r.set(`im:dedup:${eventId}`, "1", "EX", 300, "NX")
+    if (!dup) return c.json({ ok: true })
   }
 
   const adapter = adapterRegistry.get("feishu")

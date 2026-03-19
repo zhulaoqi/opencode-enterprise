@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, jsonb, boolean, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core"
+import { pgTable, uuid, varchar, text, jsonb, boolean, timestamp, index } from "drizzle-orm/pg-core"
 import { identity_mapping } from "../auth/identity.sql"
 
 export const mcp_group = pgTable("mcp_group", {
@@ -34,16 +34,3 @@ export const mcp_registry = pgTable(
   ],
 )
 
-export const mcp_authorization = pgTable(
-  "mcp_authorization",
-  {
-    id: uuid().primaryKey().defaultRandom(),
-    mcp_id: uuid().notNull().references(() => mcp_registry.id, { onDelete: "cascade" }),
-    grantee_type: varchar({ length: 16 }).notNull(),
-    grantee_id: varchar({ length: 128 }).notNull(),
-    permission: varchar({ length: 16 }).notNull().default("use"),
-    granted_by: uuid().notNull(),
-    created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("idx_mcp_auth_unique").on(t.mcp_id, t.grantee_type, t.grantee_id)],
-)

@@ -1,6 +1,8 @@
 import { createOpenAI } from "@ai-sdk/openai"
 import { generateText } from "ai"
 import { env } from "@/env"
+import { database, type Database } from "@/db"
+import * as model from "@/model/model"
 
 export type AgentResult = {
   text: string
@@ -11,9 +13,24 @@ export type AgentResult = {
 export async function run(
   history: { role: string; content: { text?: string } }[],
   message: string,
+  mid?: string,
 ): Promise<AgentResult> {
   const cfg = env()
-  const key = cfg.OPENAI_API_KEY
+
+  let key = cfg.OPENAI_API_KEY
+  let base = cfg.OPENAI_BASE_URL
+  let name = cfg.LLM_MODEL
+
+  if (mid) {
+    const db = database()
+    const row = await model.byId(db, mid)
+    if (row) {
+      key = row.api_key
+      base = row.base_url
+      name = row.model_id
+    }
+  }
+
   if (!key) {
     return {
       text: `[未配置 OPENAI_API_KEY] 收到: ${message}`,
@@ -22,8 +39,8 @@ export async function run(
     }
   }
 
-  const openai = createOpenAI({ apiKey: key })
-  const model = openai(cfg.LLM_MODEL)
+  const openai = createOpenAI({ apiKey: key, baseURL: base })
+  const llm = openai(name)
 
   const messages = [
     ...history.map((m) => ({
@@ -34,7 +51,7 @@ export async function run(
   ].filter((m) => m.content)
 
   const { text, usage } = await generateText({
-    model,
+    model: llm,
     messages,
     system: "You are a helpful AI assistant. Respond concisely in the user's language.",
   })
@@ -46,6 +63,6 @@ export async function run(
       input: u?.inputTokens ?? 0,
       output: u?.outputTokens ?? 0,
     },
-    model: cfg.LLM_MODEL,
+    model: name,
   }
 }

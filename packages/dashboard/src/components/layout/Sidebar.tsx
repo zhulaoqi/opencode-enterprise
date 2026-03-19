@@ -1,5 +1,5 @@
 import { A } from "@solidjs/router"
-import { MessageSquare, Package, BarChart3, Users, Settings, ChevronLeft, ChevronRight, PieChart, FileText, FolderOpen } from "lucide-solid"
+import { MessageSquare, Package, BarChart3, Users, Settings, ChevronLeft, ChevronRight, PieChart, FileText, FolderOpen, Cpu } from "lucide-solid"
 import { Avatar } from "../ui/Avatar"
 import { createSignal, Show } from "solid-js"
 import { user } from "../../stores/auth"
@@ -18,6 +18,7 @@ const main: NavItem[] = [
   { href: "/admin/users", label: "用户管理", icon: Users, roles: ["admin", "manager"] },
   { href: "/admin/quotas", label: "配额管理", icon: PieChart, roles: ["admin", "manager"] },
   { href: "/admin/audit", label: "审计日志", icon: FileText, roles: ["admin", "manager"] },
+  { href: "/admin/models", label: "模型管理", icon: Cpu, roles: ["admin"] },
   { href: "/settings", label: "配置", icon: Settings },
 ]
 
@@ -29,7 +30,7 @@ const workspace: NavItem[] = [
 function hasAccess(item: NavItem): boolean {
   if (!item.roles) return true
   const roles = user()?.roles ?? []
-  return item.roles.some((r) => roles.includes(r)) || roles.length === 0
+  return item.roles.some((r) => roles.includes(r))
 }
 
 export function Sidebar() {

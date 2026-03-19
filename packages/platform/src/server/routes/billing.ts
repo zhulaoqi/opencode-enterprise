@@ -2,8 +2,10 @@ import { Hono } from "hono"
 import { zValidator } from "@hono/zod-validator"
 import z from "zod"
 import { auth, requireRole } from "@/auth/middleware"
+import { eq } from "drizzle-orm"
 import { database } from "@/db"
 import * as quota from "@/billing/quota"
+import { quota_config } from "@/billing/quota.sql"
 import * as audit from "@/billing/audit"
 
 const billing = new Hono().use("/*", auth)
@@ -52,6 +54,12 @@ billing.post(
     return c.json({ quota: cfg }, 201)
   },
 )
+
+billing.delete("/quotas/:id", requireRole("admin"), async (c) => {
+  const db = database()
+  await db.delete(quota_config).where(eq(quota_config.id, c.req.param("id")))
+  return c.json({ ok: true })
+})
 
 billing.get("/usage", async (c) => {
   const user = c.get("user")

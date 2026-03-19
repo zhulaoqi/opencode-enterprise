@@ -1,18 +1,14 @@
-import { createSignal, createResource } from "solid-js"
+import { createSignal, createResource, Show } from "solid-js"
 import { Send, Square, ChevronDown } from "lucide-solid"
 import { sendMessage, cancelStream, isStreaming } from "../../stores/chat"
 import { api } from "../../lib/api"
 import { Button } from "../ui/Button"
 import { ProgressBar } from "../ui/ProgressBar"
 
-const models = [
-  { id: "gpt-4o", label: "GPT-4o" },
-  { id: "gpt-4o-mini", label: "GPT-4o Mini" },
-  { id: "claude-sonnet-4-20250514", label: "Claude 3.5 Sonnet" },
-  { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
-] as const
+type Model = { id: string; name: string; model_id: string }
 
-const [model, setModel] = createSignal("gpt-4o")
+const [models] = createResource(() => api.get<{ models: Model[] }>("/models").then((r) => r.models))
+export const [model, setModel] = createSignal("")
 
 export function ChatInput() {
   const [text, setText] = createSignal("")
@@ -21,7 +17,7 @@ export function ChatInput() {
   const handleSubmit = () => {
     const t = text().trim()
     if (!t) return
-    sendMessage(t)
+    sendMessage(t, model() || undefined)
     setText("")
   }
 
@@ -64,15 +60,21 @@ export function ChatInput() {
           )}
           <div class="ml-auto flex items-center gap-1">
             <div class="relative flex items-center">
-              <select
-                class="h-7 px-2 pr-6 text-xs rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text-secondary)] appearance-none cursor-pointer"
-                value={model()}
-                onChange={(e) => setModel(e.currentTarget.value)}
-              >
-                {models.map((m) => (
-                  <option value={m.id}>{m.label}</option>
-                ))}
-              </select>
+              <Show when={!models.loading} fallback={
+                <select disabled class="h-7 px-2 pr-6 text-xs rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text-muted)] appearance-none">
+                  <option>加载中...</option>
+                </select>
+              }>
+                <select
+                  class="h-7 px-2 pr-6 text-xs rounded-[var(--radius-sm)] border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text-secondary)] appearance-none cursor-pointer"
+                  value={model()}
+                  onChange={(e) => setModel(e.currentTarget.value)}
+                >
+                  {(models() ?? []).map((m) => (
+                    <option value={m.model_id}>{m.name}</option>
+                  ))}
+                </select>
+              </Show>
               <ChevronDown size={12} class="absolute right-1.5 pointer-events-none text-[var(--color-text-muted)]" />
             </div>
           </div>
