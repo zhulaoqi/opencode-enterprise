@@ -16,7 +16,7 @@ function redisKey(scope: string, id: string, key: string, metric: string) {
 
 export async function checkQuota(
   db: Database,
-  checks: { userId: string; deptIds: string[] },
+  checks: { userId: string },
 ): Promise<{ allowed: boolean; reason?: string }> {
   const r = redis()
   const now = new Date()
@@ -25,7 +25,6 @@ export async function checkQuota(
 
   const labels: Record<string, string> = {
     user: "您的个人",
-    department: "部门",
     global: "全局",
   }
 
@@ -34,8 +33,7 @@ export async function checkQuota(
 
     const isRelevant =
       cfg.scope_type === "global" ||
-      (cfg.scope_type === "user" && cfg.scope_id === checks.userId) ||
-      (cfg.scope_type === "department" && checks.deptIds.includes(cfg.scope_id))
+      (cfg.scope_type === "user" && cfg.scope_id === checks.userId)
 
     if (!isRelevant) continue
 

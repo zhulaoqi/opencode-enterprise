@@ -6,6 +6,7 @@ import * as ws from "./server/ws"
 import * as wsSubscribe from "./server/ws-subscribe"
 import { FeishuAdapter } from "./im-adapter/feishu/adapter"
 import * as adapterRegistry from "./im-adapter/registry"
+import * as feishuWs from "./im-adapter/feishu/ws-receiver"
 import { register as registerHooks } from "./hooks/register"
 import { start as startWorker } from "./worker/consumer"
 
@@ -23,6 +24,7 @@ audit.startFlush()
 
 const worker = startWorker(concurrency)
 ws.startSweeper()
+feishuWs.start().catch((e) => console.warn("[feishu-ws] auto-start skipped:", e))
 console.log(`[worker] started with concurrency=${concurrency}`)
 
 function fetch(req: Request, server: { upgrade: (r: Request, opts?: { data?: unknown }) => boolean }) {

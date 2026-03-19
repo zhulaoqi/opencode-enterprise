@@ -175,11 +175,12 @@ bun run db push
 ```bash
 docker exec <容器名> psql -U <用户名> -d opencode -c "\dt"
 
-# 应看到 13 张表：
+# 应看到 15 张表：
 # identity_mapping, role, user_role, department_role,
 # enterprise_session, enterprise_message, enterprise_tool_log,
 # mcp_registry, mcp_authorization, mcp_group,
-# quota_config, quota_usage, audit_log
+# quota_config, quota_usage, audit_log,
+# llm_model, channel_config
 ```
 
 > **数据库说明**：
@@ -691,10 +692,25 @@ POST /api/billing/quotas                  创建/更新配额规则
 
 GET  /api/dashboard/overview?range=       概览 KPI
 GET  /api/dashboard/trend?days=30         Token 使用日趋势
-GET  /api/dashboard/by-department         部门用量统计
+GET  /api/dashboard/active-users          活跃用户排行
+GET  /api/dashboard/mcp-leaderboard       MCP 使用排行
+GET  /api/dashboard/model-distribution    模型分布
 GET  /api/dashboard/top-tools?days=30     工具调用排行
+GET  /api/dashboard/recent-activity       最近活动
+
+GET  /api/models                          可用模型列表
+POST /api/models/admin                    新增模型
+PUT  /api/models/admin/reorder            模型排序
+PUT  /api/models/admin/:id               编辑模型
+DELETE /api/models/admin/:id             删除模型
+
+GET    /api/admin/channels               外部渠道列表
+PUT    /api/admin/channels/:type         配置渠道
+DELETE /api/admin/channels/:type         删除渠道
+POST   /api/admin/channels/:type/test    测试渠道连接
 
 POST /api/im/feishu/webhook               飞书事件回调
+POST /api/im/feishu/card-action           飞书卡片按钮回调
 
 WS   /ws?token=JWT                        WebSocket 实时通信
 ```
@@ -744,7 +760,88 @@ OpenCode Core 定义 6 个 hook，Platform 全部实现并注册：
 
 ---
 
-## 10. 常用运维命令
+## 10. 外部消息渠道配置（飞书 / 钉钉 / 企微）
+
+平台支持通过 IM Bot 接入 AI 对话能力。管理员可在 **设置 → 外部消息渠道** 中可视化配置，无需修改环境变量。
+
+### 10.1 飞书 Bot 接入步骤
+
+#### 第一步：创建飞书应用
+
+1. 打开 [飞书开放平台](https://open.feishu.cn/app) → 创建企业自建应用
+2. 进入应用 → **凭证与基础信息** → 记录 `App ID` 和 `App Secret`
+3. 进入 **事件与回调** → **加密策略**：
+   - 记录 `Verification Token`（可选，用于验签）
+   - 记录 `Encrypt Key`（可选，用于加密）
+
+#### 第二步：配置事件回调地址
+
+在飞书应用 → **事件与回调** → **事件配置** 中：
+
+```
+请求地址 URL：https://你的域名/api/im/feishu/webhook
+```
+
+> 本地开发时可用 `http://localhost:3100/api/im/feishu/webhook`，但飞书需要公网可达的地址。
+> 可使用 ngrok、Cloudflare Tunnel 等工具暴露本地端口。
+
+#### 第三步：添加权限
+
+在飞书应用 → **权限管理** 中申请以下权限：
+
+| 权限 | 说明 |
+|------|------|
+| `im:message:receive_v1` | 接收群聊/私聊消息 |
+| `im:message:send_v1` | 发送消息 |
+| `contact:user.base:readonly` | 获取用户基本信息（用于自动注册） |
+
+申请后需 **发布版本** 并由管理员审批。
+
+#### 第四步：在平台中配置
+
+1. 登录 Dashboard → **设置** 页面
+2. 找到 **外部消息渠道** → **飞书 Bot** → 点击 **配置**
+3. 填入 `App ID`、`App Secret`，可选填 `Verification Token` 和 `Encrypt Key`
+4. 开启 **免登自动注册**（推荐）：飞书用户 @Bot 时自动创建系统账号
+5. 保存后点击 **测试连接**，验证凭证有效
+6. 点击启用开关，完成
+
+#### 第五步：验证
+
+在飞书中私聊 Bot 或在群聊中 @Bot 发送一条消息，Bot 应回复 AI 生成的内容。
+
+### 10.2 配置优先级
+
+平台支持两种配置方式，数据库配置优先：
+
+```
+读取飞书配置：
+1. 查询 channel_config 表（通过 Dashboard 配置写入）
+2. 如果有记录且 enabled = true → 使用数据库配置
+3. 如果没有记录 → 回退到 .env 中的 FEISHU_APP_ID / FEISHU_APP_SECRET
+```
+
+这意味着：
+- **推荐方式**：在 Dashboard 设置页面配置（可视化、可测试、可启停）
+- **兼容方式**：在 `.env` 中配置（适合 CI/CD 或不使用 Dashboard 的场景）
+
+### 10.3 免登自动注册
+
+开启后，飞书用户首次 @Bot 时，系统会：
+
+1. 通过飞书 API 获取用户信息（姓名、头像、邮箱）
+2. 自动在 `identity_mapping` 表创建用户记录
+3. 用户无需提前在 Web 端登录绑定
+
+关闭后，未绑定用户 @Bot 会收到提示："请先完成账号绑定后再使用 AI 助手"。
+
+### 10.4 钉钉 / 企业微信（即将支持）
+
+Dashboard 设置页面已预留钉钉和企业微信的配置入口。后端适配器尚在开发中，当前标记为"即将支持"。
+
+---
+
+## 11. 常用运维命令
 
 ```bash
 # ============= 数据库 =============
@@ -785,7 +882,7 @@ kubectl top pods -l app=opencode-api
 
 ---
 
-## 11. 故障排查
+## 12. 故障排查
 
 | 现象 | 检查点 |
 |------|--------|
@@ -794,6 +891,8 @@ kubectl top pods -l app=opencode-api
 | Worker 启动但不处理任务 | 检查 Redis 是否可达：`redis-cli ping` 应返回 `PONG` |
 | Dashboard 打开白屏 | 检查 API Server 是否在 3100 端口运行，Vite 代理依赖它 |
 | 飞书登录失败 | 检查 `FEISHU_APP_ID` / `FEISHU_APP_SECRET` 是否正确，飞书应用是否已上架 |
+| 飞书 Bot 不回复 | 1) 检查 Dashboard 设置中渠道是否启用；2) 测试连接是否通过；3) 确认事件回调 URL 公网可达；4) 检查 Worker 日志 |
+| 飞书自动注册不生效 | 确认已开启「免登自动注册」开关；确认飞书应用拥有 `contact:user.base:readonly` 权限 |
 | 配额检查不生效 | 检查 `quota_config` 表是否有数据，Redis 中 `quota:*` key 是否正常递增 |
 | 工具调用被拒绝 | 检查 Redis `circuit:*` key，确认熔断器是否处于 OPEN 状态 |
 | Docker 构建失败 | 确保在**项目根目录**执行 `docker build`，因为 monorepo 需要完整上下文 |

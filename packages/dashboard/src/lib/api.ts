@@ -1,4 +1,4 @@
-import { token } from "../stores/auth"
+import { token, logout } from "../stores/auth"
 
 const BASE = "/api"
 
@@ -13,7 +13,7 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
     },
   })
   if (res.status === 401) {
-    window.location.href = "/login"
+    logout()
     throw new Error("Unauthorized")
   }
   if (!res.ok) throw new Error(await res.text())

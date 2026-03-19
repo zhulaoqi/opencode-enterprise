@@ -14,8 +14,7 @@ export async function beforePrompt(input: {
   const user = await identity.byInternalId(db, input.userId)
   if (!user) return input
 
-  const deptIds = (user.department_ids ?? []) as string[]
-  const quotaResult = await quota.checkQuota(db, { userId: input.userId, deptIds })
+  const quotaResult = await quota.checkQuota(db, { userId: input.userId })
   if (!quotaResult.allowed) {
     throw new HTTPException(429, { message: quotaResult.reason })
   }

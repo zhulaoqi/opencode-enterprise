@@ -79,12 +79,13 @@ function delay() {
 }
 
 function scheduleReconnect() {
-  if (closing) return
+  if (closing || !token()) return
   clearTimeout(reconnectTimer)
   const ms = delay()
   console.log(`[ws] reconnecting in ${Math.round(ms)}ms (attempt ${retries + 1})`)
   setReconnecting(true)
   reconnectTimer = setTimeout(() => {
+    if (!token()) return
     retries++
     connect()
   }, ms)
@@ -124,14 +125,19 @@ if (typeof window !== "undefined") {
 // ---------------------------------------------------------------------------
 // Core connect
 // ---------------------------------------------------------------------------
+function wsUrl(tk: string) {
+  if (import.meta.env.DEV) return `ws://localhost:3100/ws?token=${tk}`
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:"
+  return `${protocol}//${location.host}/ws?token=${tk}`
+}
+
 export function connect() {
   if (closing) return
   const tk = token()
   if (!tk) return
   if (socket && (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN)) return
 
-  const protocol = location.protocol === "https:" ? "wss:" : "ws:"
-  socket = new WebSocket(`${protocol}//${location.host}/ws?token=${tk}`)
+  socket = new WebSocket(wsUrl(tk))
 
   socket.onopen = () => {
     console.log("[ws] connected")

@@ -1,5 +1,5 @@
 import { createResource, createSignal, Show, For } from "solid-js"
-import { Plus, X, Pencil, Trash2, Globe, Users, User, ArrowDownToLine, ArrowUpFromLine, DollarSign, Hash, AlertCircle } from "lucide-solid"
+import { Plus, X, Pencil, Trash2, Globe, User, ArrowDownToLine, ArrowUpFromLine, DollarSign, Hash, AlertCircle } from "lucide-solid"
 import { api } from "../lib/api"
 import { Card } from "../components/ui/Card"
 import { Skeleton } from "../components/ui/Skeleton"
@@ -53,16 +53,12 @@ function bar(value: number, color: string) {
 
 function ScopeIcon(props: { type: string; size?: number }) {
   const s = props.size ?? 16
-  switch (props.type) {
-    case "global": return <Globe size={s} class="text-blue-500" />
-    case "department": return <Users size={s} class="text-amber-500" />
-    default: return <User size={s} class="text-emerald-500" />
-  }
+  if (props.type === "global") return <Globe size={s} class="text-blue-500" />
+  return <User size={s} class="text-emerald-500" />
 }
 
 const scopeInfo: Record<string, { label: string; color: string }> = {
   global: { label: "全局", color: "#3b82f6" },
-  department: { label: "部门", color: "#f59e0b" },
   user: { label: "用户", color: "#10b981" },
 }
 const periodLabel: Record<string, string> = { daily: "每日", monthly: "每月" }
@@ -159,7 +155,7 @@ export default function Quotas() {
               </div>
               <h3 class="text-base font-semibold text-[var(--color-text-primary)] mb-1">还没有配额规则</h3>
               <p class="text-sm text-[var(--color-text-muted)] mb-5 max-w-xs mx-auto">
-                创建配额规则来限制 Token 消耗量，控制成本。支持全局、部门、用户三级配额。
+                创建配额规则来限制 Token 消耗量，控制成本。支持全局和用户两级配额。
               </p>
               <Button variant="primary" size="sm" onClick={openCreate}>
                 <Plus size={16} class="mr-1" /> 创建第一个配额
@@ -326,8 +322,8 @@ export default function Quotas() {
                 {/* Scope type */}
                 <div>
                   <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">适用范围</label>
-                  <div class="grid grid-cols-3 gap-2">
-                    <For each={["global", "department", "user"] as const}>
+                  <div class="grid grid-cols-2 gap-2">
+                    <For each={["global", "user"] as const}>
                       {(t) => (
                         <button
                           class={`flex flex-col items-center gap-1.5 py-3 rounded-xl border text-sm transition-all ${form().scope_type === t ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)]"}`}
@@ -344,12 +340,10 @@ export default function Quotas() {
                 {/* Scope ID */}
                 <Show when={form().scope_type !== "global"}>
                   <div>
-                    <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">
-                      {form().scope_type === "department" ? "部门 ID" : "用户 ID"}
-                    </label>
+                    <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5">用户 ID</label>
                     <input
                       class={input}
-                      placeholder={form().scope_type === "department" ? "输入飞书部门 ID" : "输入用户内部 ID（可从用户管理页复制）"}
+                      placeholder="输入用户内部 ID（可从用户管理页复制）"
                       value={form().scope_id}
                       onInput={(e) => setForm((f) => ({ ...f, scope_id: e.currentTarget.value }))}
                     />

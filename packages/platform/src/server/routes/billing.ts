@@ -40,7 +40,7 @@ billing.post(
   zValidator(
     "json",
     z.object({
-      scope_type: z.string(),
+      scope_type: z.enum(["global", "user"]),
       scope_id: z.string().default(""),
       period: z.string(),
       max_tokens: z.number(),

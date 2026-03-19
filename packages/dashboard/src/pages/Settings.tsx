@@ -1,13 +1,21 @@
+import { Show } from "solid-js"
 import { theme, setTheme, resolved } from "../stores/theme"
 import { user, logout } from "../stores/auth"
 import { Avatar } from "../components/ui/Avatar"
 import { Card } from "../components/ui/Card"
+import { ChannelConfig } from "../components/settings/ChannelConfig"
+
+function isAdmin() {
+  const u = user()
+  return u?.roles?.includes("admin")
+}
 
 export default function Settings() {
   return (
     <div class="p-4 max-w-2xl mx-auto">
       <h1 class="text-2xl font-bold text-[var(--color-text-primary)] mb-6">设置</h1>
       <div class="space-y-6">
+        {/* Profile */}
         <Card>
           <h2 class="text-lg font-semibold text-[var(--color-text-primary)] mb-4">个人资料</h2>
           <div class="flex items-center gap-4">
@@ -18,6 +26,8 @@ export default function Settings() {
             </div>
           </div>
         </Card>
+
+        {/* Appearance */}
         <div>
           <h2 class="text-lg font-semibold text-[var(--color-text-primary)] mb-2">外观</h2>
           <div class="flex gap-2">
@@ -34,6 +44,17 @@ export default function Settings() {
             当前: {resolved() === "dark" ? "深色" : "浅色"}
           </p>
         </div>
+
+        {/* External channels (admin only) */}
+        <Show when={isAdmin()}>
+          <div class="pt-4 border-t border-[var(--color-border)]">
+            <h2 class="text-lg font-semibold text-[var(--color-text-primary)] mb-1">外部消息渠道</h2>
+            <p class="text-xs text-[var(--color-text-muted)] mb-4">配置飞书、钉钉、企业微信等 IM Bot，用户可在 IM 中直接与 AI 对话</p>
+            <ChannelConfig />
+          </div>
+        </Show>
+
+        {/* Logout */}
         <div class="pt-4 border-t border-[var(--color-border)]">
           <button
             class="px-4 py-2 rounded-[var(--radius-md)] text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"

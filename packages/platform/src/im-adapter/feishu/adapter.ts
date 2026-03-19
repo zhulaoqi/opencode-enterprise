@@ -3,12 +3,14 @@ import type { ImMessage, ImReply, ImCard } from "../types"
 import * as webhook from "./webhook"
 import * as client from "./client"
 import { env } from "@/env"
+import { resolved } from "@/server/routes/channel"
 
 export class FeishuAdapter implements ImAdapter {
   readonly source = "feishu"
 
   async verify(_req: Request, body: unknown): Promise<boolean> {
-    const tk = env().FEISHU_VERIFICATION_TOKEN
+    const ch = await resolved("feishu")
+    const tk = (ch?.config as Record<string, string>)?.verification_token ?? env().FEISHU_VERIFICATION_TOKEN
     if (!tk) return true
     return webhook.verifySignature(body, tk)
   }

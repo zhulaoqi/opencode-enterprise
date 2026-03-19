@@ -27,7 +27,6 @@ export function logout() {
   localStorage.removeItem("token")
   setToken("")
   setUser(null)
-  window.location.href = "/login"
 }
 
 export function isLoggedIn() {
