@@ -11,9 +11,10 @@ export const admin = new Hono()
   .use(requireRole("admin", "manager"))
   .get("/users", async (c) => {
     const db = database()
-    const limit = Number(c.req.query("limit") ?? 50)
+    const limit = Number(c.req.query("limit") ?? 20)
     const offset = Number(c.req.query("offset") ?? 0)
-    const rows = await identity.list(db, { limit, offset })
+    const search = c.req.query("search") ?? ""
+    const rows = await identity.list(db, { limit, offset, search: search || undefined })
     return c.json(rows)
   })
   .get("/roles", async (c) => {
