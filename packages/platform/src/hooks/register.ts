@@ -4,6 +4,7 @@ import { afterToolResolve } from "./after-tool-resolve"
 import { onToolCall } from "./on-tool-call"
 import { onToolResult } from "./on-tool-result"
 import { onTokenUsage } from "./on-token-usage"
+import { onMcpToolsChanged } from "./on-mcp-tools-changed"
 
 export function register() {
   SessionHooks.register("beforePrompt", beforePrompt)
@@ -11,5 +12,6 @@ export function register() {
   SessionHooks.register("onToolCall", onToolCall)
   SessionHooks.register("onToolResult", onToolResult)
   SessionHooks.register("onTokenUsage", onTokenUsage)
+  SessionHooks.register("onMcpToolsChanged", onMcpToolsChanged)
   console.log("[platform] hooks registered with OpenCode SessionHooks")
 }

@@ -7,6 +7,8 @@ export async function onToolCall(input: {
   callID: string
   input: unknown
 }) {
-  const mcpName = input.tool.split("_")[0] ?? "unknown"
-  await circuitBreaker.recordCall(mcpName)
+  const mcp = input.tool.split("_")[0] ?? "unknown"
+  const check = await circuitBreaker.allowed(mcp)
+  if (!check.ok) throw new Error(check.message ?? `${mcp} 当前不可用`)
+  await circuitBreaker.recordCall(mcp)
 }

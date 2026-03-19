@@ -11,6 +11,7 @@ import * as notify from "./notify"
 import * as agent from "./agent"
 import { beforePrompt } from "@/hooks/before-prompt"
 import { onTokenUsage } from "@/hooks/on-token-usage"
+import { emitDone, emitError } from "@/server/ws"
 
 export function start(concurrency = 4) {
   const worker = new Worker<ChatJob>(
@@ -78,6 +79,7 @@ async function process(job: Job<ChatJob>) {
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "配额不足，请稍后再试"
+    if (data.source === "web") emitError(sess.id, "quota_exceeded", msg)
     await pushResult(data, msg, sess.id)
     return
   }
@@ -111,13 +113,8 @@ async function process(job: Job<ChatJob>) {
 
   await pushResult(data, result.text, sess.id)
 
-  if (data.source === "web" && data.callback.ws_id) {
-    await notify.publishDone({
-      user_id: data.user_id,
-      session_id: sess.id,
-      type: "done",
-      text: result.text,
-    })
+  if (data.source === "web") {
+    emitDone(sess.id, { input: result.tokens.input, output: result.tokens.output, model: result.model })
   }
 }
 

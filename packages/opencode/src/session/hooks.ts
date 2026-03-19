@@ -41,12 +41,20 @@ export namespace SessionHooks {
     cost: number
   }
 
+  export type OnMcpToolsChangedInput = {
+    sessionID: string
+    userId?: string
+    added: string[]
+    removed: string[]
+  }
+
   type Hooks = {
     beforePrompt: (input: BeforePromptInput) => Promise<BeforePromptInput>
     afterToolResolve: (input: AfterToolResolveInput) => Promise<AfterToolResolveInput>
     onToolCall: (input: OnToolCallInput) => Promise<void>
     onToolResult: (input: OnToolResultInput) => Promise<void>
     onTokenUsage: (input: OnTokenUsageInput) => Promise<void>
+    onMcpToolsChanged: (input: OnMcpToolsChangedInput) => Promise<void>
   }
 
   const registry: Partial<Hooks> = {}
@@ -82,5 +90,10 @@ export namespace SessionHooks {
   export async function runOnTokenUsage(input: OnTokenUsageInput): Promise<void> {
     if (!registry.onTokenUsage) return
     return registry.onTokenUsage(input)
+  }
+
+  export async function runOnMcpToolsChanged(input: OnMcpToolsChangedInput): Promise<void> {
+    if (!registry.onMcpToolsChanged) return
+    return registry.onMcpToolsChanged(input)
   }
 }

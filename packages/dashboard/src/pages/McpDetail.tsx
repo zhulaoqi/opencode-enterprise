@@ -19,6 +19,8 @@ type McpDetail = {
   visibility: string
   tags?: string[]
   owner_id?: string
+  health_status?: string
+  last_health_at?: string
 }
 
 type Auth = {
@@ -33,6 +35,9 @@ export default function McpDetail() {
   const id = () => params.id
   const [data, { refetch }] = createResource(id, (i) =>
     api.get<{ mcp: McpDetail; authorizations: Auth[] }>(`/mcp/${i}`)
+  )
+  const [health] = createResource(id, (i) =>
+    api.get<{ status: string; checked_at?: string }>(`/mcp/${i}/health`).catch(() => ({ status: "unknown" } as { status: string; checked_at?: string }))
   )
   const [usage] = createResource(id, (i) =>
     api.get<{ trend: { day: string; tokens_in: number; tokens_out: number }[] }>(`/mcp/${i}/usage?days=7`)
@@ -80,6 +85,14 @@ export default function McpDetail() {
             <p class="text-[var(--color-text-muted)] mb-4">{data()!.mcp.description ?? data()!.mcp.name}</p>
             <div class="flex gap-2 flex-wrap mb-4">
               <Badge variant="default">{data()!.mcp.visibility}</Badge>
+              <Badge variant={health()?.status === "healthy" ? "success" : health()?.status === "unhealthy" ? "error" : "warning"}>
+                {health()?.status === "healthy" ? "健康" : health()?.status === "unhealthy" ? "异常" : "未知"}
+              </Badge>
+              {health()?.checked_at && (
+                <span class="text-xs text-[var(--color-text-muted)] self-center">
+                  检测于 {new Date(health()!.checked_at!).toLocaleString("zh-CN")}
+                </span>
+              )}
               {(data()!.mcp.tags ?? []).map((t) => (
                 <Badge variant="info">{t}</Badge>
               ))}
