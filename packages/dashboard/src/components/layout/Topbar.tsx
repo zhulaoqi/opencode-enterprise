@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js"
 import { Search, Bell, Sun, Moon, LogOut, Settings } from "lucide-solid"
 import { user, logout } from "../../stores/auth"
+import { Avatar } from "../ui/Avatar"
 import { setTheme, resolved } from "../../stores/theme"
 import { connected } from "../../lib/ws"
 
@@ -45,9 +46,7 @@ export function Topbar() {
             class="flex items-center gap-2 p-1.5 rounded hover:bg-[var(--color-muted)]"
             onClick={() => setShowUserMenu((v) => !v)}
           >
-            <div class="w-8 h-8 rounded-full bg-[var(--color-muted)] flex items-center justify-center text-sm font-medium">
-              {user()?.name?.slice(0, 1) ?? "?"}
-            </div>
+            <Avatar name={user()?.name} src={user()?.avatar} size="sm" />
           </button>
           {showUserMenu() && (
             <>

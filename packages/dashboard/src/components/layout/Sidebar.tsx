@@ -1,5 +1,6 @@
 import { A } from "@solidjs/router"
 import { MessageSquare, Package, BarChart3, Users, Settings, ChevronLeft, ChevronRight, PieChart, FileText } from "lucide-solid"
+import { Avatar } from "../ui/Avatar"
 import { createSignal } from "solid-js"
 import { user } from "../../stores/auth"
 
@@ -47,9 +48,7 @@ export function Sidebar() {
       {!collapsed() && user() && (
         <div class="p-3 border-t border-[var(--color-border)]">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-full bg-[var(--color-muted)] flex items-center justify-center text-sm font-medium">
-              {user()?.name?.slice(0, 1) ?? "?"}
-            </div>
+            <Avatar name={user()?.name} src={user()?.avatar} size="sm" />
             <div class="min-w-0">
               <p class="text-sm font-medium truncate">{user()?.name}</p>
               <p class="text-xs text-[var(--color-text-muted)] truncate">{user()?.email}</p>

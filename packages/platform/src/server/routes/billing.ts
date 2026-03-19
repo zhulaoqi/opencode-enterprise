@@ -60,6 +60,17 @@ billing.get("/usage", async (c) => {
   return c.json({ usage: data })
 })
 
+billing.get("/me", async (c) => {
+  const user = c.get("user")
+  const db = database()
+  const configs = await quota.listConfigs(db)
+  const userQuota = configs.find((q) => q.scope_type === "user" && q.scope_id === user.sub)
+  const period = userQuota?.period ?? "monthly"
+  const u = await quota.usage("user", user.sub, period)
+  const max = userQuota?.max_tokens ?? 1_000_000
+  return c.json({ tokens_used: u.tokens, max_tokens: max, pct: max > 0 ? Math.min(100, (u.tokens / max) * 100) : 0 })
+})
+
 billing.get("/usage/:scope/:id", requireRole("admin", "manager"), async (c) => {
   const period = c.req.query("period") ?? "monthly"
   const data = await quota.usage(c.req.param("scope"), c.req.param("id"), period)

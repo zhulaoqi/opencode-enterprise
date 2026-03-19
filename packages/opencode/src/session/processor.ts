@@ -282,7 +282,7 @@ export namespace SessionProcessor {
                     provider: input.model.providerID,
                     input: usage.tokens.input,
                     output: usage.tokens.output,
-                    cached: usage.tokens.cache_read ?? 0,
+                    cached: usage.tokens.cache?.read ?? 0,
                     cost: usage.cost,
                   }).catch(() => {})
                   if (snapshot) {

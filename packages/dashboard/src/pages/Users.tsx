@@ -3,6 +3,7 @@ import { api } from "../lib/api"
 import { Card } from "../components/ui/Card"
 import { Skeleton } from "../components/ui/Skeleton"
 import { Table, TableHead, TableBody, TableRow, TableCell } from "../components/ui/Table"
+import { Avatar } from "../components/ui/Avatar"
 import { Dropdown } from "../components/ui/Dropdown"
 import { Button } from "../components/ui/Button"
 import { notify } from "../stores/notification"
@@ -12,6 +13,7 @@ type User = {
   name: string
   email?: string
   employee_id?: string
+  avatar_url?: string
 }
 
 const PAGE_SIZE = 20
@@ -57,6 +59,7 @@ export default function Users() {
           <Table>
             <TableHead>
               <TableRow head>
+                <TableCell head></TableCell>
                 <TableCell head>ID</TableCell>
                 <TableCell head>姓名</TableCell>
                 <TableCell head>工号</TableCell>
@@ -67,6 +70,9 @@ export default function Users() {
             <TableBody>
               {users().map((u) => (
                 <TableRow>
+                  <TableCell>
+                    <Avatar name={u.name} src={u.avatar_url} size="sm" />
+                  </TableCell>
                   <TableCell>
                     <span class="font-mono text-xs">{u.internal_id?.slice(0, 8)}...</span>
                   </TableCell>

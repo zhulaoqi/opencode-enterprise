@@ -31,6 +31,17 @@ export const sessions = new Hono()
     const msgs = await session.messages(db, c.req.param("id"))
     return c.json(msgs)
   })
+  .put(
+    "/:id",
+    zValidator("json", z.object({ title: z.string().optional() })),
+    async (c) => {
+      const db = database()
+      const body = c.req.valid("json")
+      const row = await session.update(db, c.req.param("id"), body)
+      if (!row) return c.json({ error: "Not found" }, 404)
+      return c.json(row)
+    },
+  )
   .delete("/:id", async (c) => {
     const db = database()
     await session.remove(db, c.req.param("id"))

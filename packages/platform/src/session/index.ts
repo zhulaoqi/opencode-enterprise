@@ -1,4 +1,4 @@
-import { eq, desc } from "drizzle-orm"
+import { and, eq, desc, ne } from "drizzle-orm"
 import { enterprise_session } from "./session.sql"
 import { enterprise_message } from "./message.sql"
 import { enterprise_tool_log } from "./tool-log.sql"
@@ -87,11 +87,20 @@ export function listSessions(db: Database, userId: string, opts?: { limit?: numb
   let query = db
     .select()
     .from(enterprise_session)
-    .where(eq(enterprise_session.user_id, userId))
+    .where(and(eq(enterprise_session.user_id, userId), ne(enterprise_session.status, "deleted")))
     .orderBy(desc(enterprise_session.updated_at))
   if (opts?.limit) query = query.limit(opts.limit) as any
   if (opts?.offset) query = query.offset(opts.offset) as any
   return query
+}
+
+export async function update(db: Database, id: string, input: { title?: string }) {
+  const [row] = await db
+    .update(enterprise_session)
+    .set({ ...input, updated_at: new Date() })
+    .where(eq(enterprise_session.id, id))
+    .returning()
+  return row
 }
 
 export async function remove(db: Database, id: string) {

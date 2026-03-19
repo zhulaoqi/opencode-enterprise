@@ -1,10 +1,23 @@
 import { theme, setTheme, resolved } from "../stores/theme"
+import { user } from "../stores/auth"
+import { Avatar } from "../components/ui/Avatar"
+import { Card } from "../components/ui/Card"
 
 export default function Settings() {
   return (
     <div class="p-4 max-w-2xl mx-auto">
       <h1 class="text-2xl font-bold text-[var(--color-text-primary)] mb-6">设置</h1>
       <div class="space-y-6">
+        <Card>
+          <h2 class="text-lg font-semibold text-[var(--color-text-primary)] mb-4">个人资料</h2>
+          <div class="flex items-center gap-4">
+            <Avatar name={user()?.name} src={user()?.avatar} size="lg" />
+            <div>
+              <p class="font-medium text-[var(--color-text-primary)]">{user()?.name ?? "-"}</p>
+              <p class="text-sm text-[var(--color-text-muted)]">{user()?.email ?? "-"}</p>
+            </div>
+          </div>
+        </Card>
         <div>
           <h2 class="text-lg font-semibold text-[var(--color-text-primary)] mb-2">外观</h2>
           <div class="flex gap-2">
