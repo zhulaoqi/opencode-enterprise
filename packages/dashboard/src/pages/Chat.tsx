@@ -4,6 +4,8 @@ import { MessageList } from "../components/chat/MessageList"
 import { ChatInput } from "../components/chat/ChatInput"
 import { loadSessions, activeId } from "../stores/chat"
 import { api } from "../lib/api"
+import { ready as connected } from "../lib/worker"
+import { Loader } from "lucide-solid"
 
 type McpItem = { id: string; name: string; authorized?: boolean }
 
@@ -18,7 +20,7 @@ export default function Chat() {
   })
 
   return (
-    <div class="flex h-full">
+    <div class="flex h-full relative">
       <div class="hidden md:block shrink-0">
         <SessionList />
       </div>
@@ -49,6 +51,15 @@ export default function Chat() {
           </div>
         )}
       </div>
+      <Show when={!connected()}>
+        <div class="absolute inset-0 z-10 flex items-center justify-center bg-[var(--color-bg)]/60 backdrop-blur-[2px]">
+          <div class="flex flex-col items-center gap-3 p-6 rounded-[var(--radius-lg)] bg-[var(--color-bg-elevated)] border border-[var(--color-border)] shadow-[var(--shadow-lg)]">
+            <Loader size={24} class="animate-spin text-[var(--color-primary)]" />
+            <p class="text-sm font-medium text-[var(--color-text-primary)]">正在启动工作区...</p>
+            <p class="text-xs text-[var(--color-text-muted)]">首次加载可能需要几秒钟</p>
+          </div>
+        </div>
+      </Show>
     </div>
   )
 }

@@ -1,8 +1,9 @@
 import { A } from "@solidjs/router"
-import { MessageSquare, Package, BarChart3, Users, Settings, ChevronLeft, ChevronRight, PieChart, FileText, FolderOpen, Cpu } from "lucide-solid"
-import { Avatar } from "../ui/Avatar"
+import { MessageSquare, Package, BarChart3, Users, Settings, ChevronLeft, ChevronRight, PieChart, FileText, FolderOpen, Cpu, Wifi, WifiOff, Loader } from "lucide-solid"
 import { createSignal, Show } from "solid-js"
 import { user } from "../../stores/auth"
+import { ready as connected } from "../../lib/worker"
+import { streaming as sseOk } from "../../lib/stream"
 
 type NavItem = {
   href: string
@@ -90,17 +91,31 @@ export function Sidebar() {
           </Show>
         </Show>
       </nav>
-      {!collapsed() && user() && (
-        <div class="p-3 border-t border-[var(--color-border)]">
-          <div class="flex items-center gap-2">
-            <Avatar name={user()?.name} src={user()?.avatar} size="sm" />
+      <div class="p-3 border-t border-[var(--color-border)]">
+        {collapsed() ? (
+          <div class="flex justify-center" title={connected() ? (sseOk() ? "已连接" : "连接中") : "离线"}>
+            <div class={`w-2.5 h-2.5 rounded-full ${connected() ? (sseOk() ? "bg-emerald-500" : "bg-amber-400 animate-pulse") : "bg-[var(--color-text-muted)]"}`} />
+          </div>
+        ) : (
+          <div class="flex items-center gap-2.5">
+            <div class={`relative flex items-center justify-center w-8 h-8 rounded-full shrink-0 ${connected() ? (sseOk() ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-400/10 text-amber-500") : "bg-[var(--color-muted)] text-[var(--color-text-muted)]"}`}>
+              {connected() ? (
+                sseOk() ? <Wifi size={16} /> : <Loader size={16} class="animate-spin" />
+              ) : (
+                <WifiOff size={16} />
+              )}
+            </div>
             <div class="min-w-0">
-              <p class="text-sm font-medium truncate">{user()?.name}</p>
-              <p class="text-xs text-[var(--color-text-muted)] truncate">{user()?.email}</p>
+              <p class="text-sm font-medium truncate">
+                {connected() ? (sseOk() ? "已就绪" : "连接中...") : "离线"}
+              </p>
+              <p class="text-xs text-[var(--color-text-muted)] truncate">
+                {user()?.name ?? "Worker"}
+              </p>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </aside>
   )
 }

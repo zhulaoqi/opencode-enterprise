@@ -11,10 +11,10 @@ declare module "hono" {
 
 export const auth = createMiddleware(async (c, next) => {
   const header = c.req.header("Authorization")
-  if (!header?.startsWith("Bearer ")) {
+  const token = header?.startsWith("Bearer ") ? header.slice(7) : c.req.query("token")
+  if (!token) {
     throw new HTTPException(401, { message: "Missing or invalid Authorization header" })
   }
-  const token = header.slice(7)
   try {
     const payload = await verify(token, env().JWT_SECRET)
     if (!payload.sub) throw new Error("missing sub")

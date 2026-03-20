@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js"
 import { sseUrl } from "./worker"
+import { token } from "../stores/auth"
 
 type Handler = (data: Record<string, unknown>) => void
 
@@ -12,7 +13,8 @@ export { streaming }
 export function connect() {
   close()
   const href = sseUrl("/global/event")
-  source = new EventSource(href)
+  const tk = token()
+  source = new EventSource(tk ? `${href}${href.includes("?") ? "&" : "?"}token=${tk}` : href)
 
   source.onopen = () => {
     setStreaming(true)

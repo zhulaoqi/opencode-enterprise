@@ -28,4 +28,8 @@ export const api = {
     request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
   del: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "DELETE", ...(body != null && { body: JSON.stringify(body) }) }),
+  authHeader(): Record<string, string> {
+    const tk = token()
+    return tk ? { Authorization: `Bearer ${tk}` } : {}
+  },
 }

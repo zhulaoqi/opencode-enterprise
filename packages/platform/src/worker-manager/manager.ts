@@ -12,18 +12,11 @@ const pending = new Map<string, Promise<Worker>>()
 
 type Worker = { port: number; secret: string; container: string }
 
-function auth(secret: string) {
-  return { Authorization: `Basic ${btoa(`opencode:${secret}`)}` }
-}
-
-async function healthy(port: number, secret: string): Promise<boolean> {
+async function healthy(port: number): Promise<boolean> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), HEALTH_TIMEOUT)
   try {
-    const res = await fetch(`http://localhost:${port}/global/health`, {
-      signal: ctrl.signal,
-      headers: auth(secret),
-    })
+    const res = await fetch(`http://localhost:${port}/global/health`, { signal: ctrl.signal })
     return res.ok
   } catch {
     return false
@@ -32,10 +25,10 @@ async function healthy(port: number, secret: string): Promise<boolean> {
   }
 }
 
-async function ready(port: number, secret: string, timeout = SPAWN_TIMEOUT): Promise<void> {
+async function ready(port: number, timeout = SPAWN_TIMEOUT): Promise<void> {
   const deadline = Date.now() + timeout
   while (Date.now() < deadline) {
-    if (await healthy(port, secret)) return
+    if (await healthy(port)) return
     await Bun.sleep(500)
   }
   throw new Error(`Worker on :${port} did not become healthy within ${timeout}ms`)
@@ -85,7 +78,7 @@ export async function spawn(uid: string): Promise<Worker> {
     ? await spawnDocker(uid, port, secret, config)
     : await spawnProcess(uid, port, secret, config)
 
-  await ready(port, secret)
+  await ready(port)
   await registry.set(uid, {
     port,
     pid: result.pid,
@@ -100,7 +93,7 @@ export async function spawn(uid: string): Promise<Worker> {
 
 export async function get(uid: string): Promise<Worker> {
   const existing = await registry.get(uid)
-  if (existing && await healthy(existing.port, existing.secret)) {
+  if (existing && await healthy(existing.port)) {
     await registry.touch(uid)
     return { port: existing.port, secret: existing.secret, container: existing.container }
   }
@@ -115,7 +108,7 @@ export async function get(uid: string): Promise<Worker> {
 export async function stop(uid: string) {
   const entry = await registry.get(uid)
   if (!entry) return
-  try { await fetch(`http://localhost:${entry.port}/global/dispose`, { method: "POST", headers: auth(entry.secret) }) } catch {}
+  try { await fetch(`http://localhost:${entry.port}/global/dispose`, { method: "POST" }) } catch {}
   if (entry.container) {
     Bun.spawn(["docker", "stop", entry.container])
     Bun.spawn(["docker", "rm", "-f", entry.container])

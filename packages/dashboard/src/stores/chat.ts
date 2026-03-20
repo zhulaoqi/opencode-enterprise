@@ -27,7 +27,7 @@ export { sessions, setSessions, activeId, setActiveId, messages, setMessages, st
 
 export async function loadSessions() {
   try {
-    const raw = await request<any[]>("/session/")
+    const raw = await request<any[]>("/session")
     const rows: Session[] = (Array.isArray(raw) ? raw : []).map((s) => ({
       id: s.id,
       title: s.title || "新对话",
@@ -71,8 +71,12 @@ export async function loadMessages(id: string) {
 }
 
 export async function createSession(): Promise<string> {
-  const sess = await request<{ id: string }>("/session/", { method: "POST", body: JSON.stringify({}) })
-  await loadSessions()
+  const sess = await request<{ id: string }>("/session", { method: "POST", body: JSON.stringify({}) })
+  const now = Date.now()
+  setSessions((prev) => [
+    { id: sess.id, title: "新对话", time: { created: now, updated: now } },
+    ...prev,
+  ])
   return sess.id
 }
 
@@ -107,7 +111,9 @@ export async function sendMessage(text: string, _model?: string) {
       loadMessages(activeId())
     }
   }, 120_000)
-  setMessages((prev) => [
+  const prev = messages()
+  const first = prev.length === 0
+  setMessages([
     ...prev,
     {
       id: crypto.randomUUID(),
@@ -116,6 +122,10 @@ export async function sendMessage(text: string, _model?: string) {
       text,
     },
   ])
+  if (first) {
+    const label = text.length > 30 ? text.slice(0, 30) + "..." : text
+    setSessions((all) => all.map((s) => (s.id === id ? { ...s, title: label } : s)))
+  }
   try {
     await request<void>(`/session/${id}/prompt_async`, {
       method: "POST",

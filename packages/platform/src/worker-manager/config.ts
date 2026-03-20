@@ -23,13 +23,16 @@ export async function serialize(uid: string) {
   const primary = models[0]
   const key = primary?.api_key ?? cfg.OPENAI_API_KEY ?? ""
   const base = primary?.base_url ?? cfg.OPENAI_BASE_URL ?? ""
-  const mid = primary?.model_id ?? cfg.LLM_MODEL
+  const mid = primary?.model_id ?? cfg.LLM_MODEL ?? ""
 
   return JSON.stringify({
     provider: {
-      custom: { name: "custom", api_key: key, base_url: base },
+      custom: {
+        name: "custom",
+        options: { apiKey: key, baseURL: base },
+      },
     },
-    model: { provider: "custom", model: mid },
+    model: mid ? `custom/${mid}` : undefined,
     mcp,
   })
 }

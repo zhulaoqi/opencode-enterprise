@@ -4,6 +4,7 @@ import type { Session } from "../../stores/chat"
 import { sessions, setSessions, activeId, setActiveId, loadSessions, loadMessages, createSession } from "../../stores/chat"
 import { Dropdown } from "../ui/Dropdown"
 import { notify } from "../../stores/notification"
+import { ready as connected } from "../../lib/worker"
 
 export function SessionList() {
   const [q, setQ] = createSignal("")
@@ -57,8 +58,9 @@ export function SessionList() {
     <div class="w-70 flex flex-col border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
       <div class="p-2 flex gap-2">
         <button
-          class="flex-1 flex items-center justify-center gap-2 h-9 rounded-[var(--radius-md)] bg-[var(--color-primary)] text-[var(--color-on-primary)] hover:bg-[var(--color-primary-hover)]"
+          class={`flex-1 flex items-center justify-center gap-2 h-9 rounded-[var(--radius-md)] ${connected() ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] hover:bg-[var(--color-primary-hover)]" : "bg-[var(--color-muted)] text-[var(--color-text-muted)] cursor-not-allowed"}`}
           onClick={handleNew}
+          disabled={!connected()}
         >
           <Plus size={18} />
           新对话
@@ -95,10 +97,10 @@ export function SessionList() {
               ) : (
                 <button class="flex-1 min-w-0 text-left" onClick={() => handleSelect(s.id)}>
                   <p class={`truncate text-sm ${activeId() === s.id ? "text-[var(--color-primary)] font-medium" : ""}`}>
-                    {s.title ?? "新对话"}
+                    {s.title || "新对话"}
                   </p>
-                  <p class="text-xs text-[var(--color-text-muted)] truncate">
-                    {s.time?.updated ? new Date(s.time.updated).toLocaleDateString("zh-CN") : ""}
+                  <p class="text-xs text-[var(--color-text-muted)] truncate mt-0.5">
+                    {s.time?.updated ? new Date(s.time.updated).toLocaleString("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "刚刚"}
                   </p>
                 </button>
               )}
