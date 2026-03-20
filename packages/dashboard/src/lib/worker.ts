@@ -35,7 +35,9 @@ export async function request<T>(path: string, opts?: RequestInit): Promise<T> {
     },
   })
   if (!res.ok) throw new Error(await res.text())
-  return res.json()
+  const txt = await res.text()
+  if (!txt) return undefined as T
+  return JSON.parse(txt)
 }
 
 export function sseUrl(path: string): string {

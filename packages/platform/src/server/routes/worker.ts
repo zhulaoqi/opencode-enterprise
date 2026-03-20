@@ -27,7 +27,6 @@ export const workerRoutes = new Hono()
       method: c.req.method,
       headers,
       body: c.req.method !== "GET" && c.req.method !== "HEAD" ? c.req.raw.body : undefined,
-      // @ts-expect-error duplex needed for streaming body
       duplex: "half",
     })
     return new Response(resp.body, {
