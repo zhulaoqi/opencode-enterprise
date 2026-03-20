@@ -13,8 +13,8 @@ import { fn } from "../util/fn"
 import { Log } from "../util/log"
 import { Process } from "../util/process"
 import { git } from "../util/git"
-import { BusEvent } from "@/bus/bus-event"
-import { GlobalBus } from "@/bus/global"
+import { BusEvent } from "../bus/bus-event"
+import { GlobalBus } from "../bus/global"
 
 export namespace Worktree {
   const log = Log.create({ service: "worktree" })
@@ -586,7 +586,7 @@ export namespace Worktree {
     const remote = remotes.includes("origin")
       ? "origin"
       : remotes.length === 1
-        ? remotes[0]
+        ? remotes[0]!
         : remotes.includes("upstream")
           ? "upstream"
           : ""

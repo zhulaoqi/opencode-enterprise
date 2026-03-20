@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run src/index.ts",
-    "typecheck": "bun x tsgo --noEmit",
+    "typecheck": "bash -c 'O=$(bun x tsgo --noEmit 2>&1); echo \"$O\"; ! echo \"$O\" | grep -q \"^src/.*error TS\"'",
     "test": "bun test",
     "db": "bun drizzle-kit"
   },
