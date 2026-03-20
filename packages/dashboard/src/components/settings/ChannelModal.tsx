@@ -99,7 +99,7 @@ export function ChannelModal(props: Props) {
                     </For>
                   </div>
                   <Show when={mode() === "websocket"}>
-                    <p class="mt-2 text-[11px] text-green-600 bg-green-50 px-2.5 py-1.5 rounded-lg">
+                    <p class="mt-2 text-[11px] text-[var(--color-success)] bg-[var(--color-success-light)] px-2.5 py-1.5 rounded-lg">
                       推荐：无需公网地址，服务端主动连接飞书，开箱即用
                     </p>
                   </Show>
@@ -161,7 +161,7 @@ export function ChannelModal(props: Props) {
                           title="复制"
                         >
                           <Show when={copied() === w.label} fallback={<Copy size={14} />}>
-                            <Check size={14} class="text-green-500" />
+                            <Check size={14} class="text-[var(--color-success)]" />
                           </Show>
                         </button>
                       </div>

@@ -17,9 +17,9 @@ export type Message = {
   tokens?: { input: number; output: number }
 }
 
-const [sessions, setSessions] = createSignal<Session[]>([])
+const [sessions, setSessions] = createSignal<Session[]>([], { equals: false })
 const [activeId, setActiveId] = createSignal("")
-const [messages, setMessages] = createSignal<Message[]>([])
+const [messages, setMessages] = createSignal<Message[]>([], { equals: false })
 const [streaming, setStreaming] = createSignal("")
 const [isStreaming, setIsStreaming] = createSignal(false)
 

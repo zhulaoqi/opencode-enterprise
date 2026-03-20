@@ -38,8 +38,10 @@ export async function all(): Promise<[string, Entry][]> {
   const result: [string, Entry][] = []
   for (const key of keys) {
     if (key === "worker:_port") continue
+    const uid = key.slice(PREFIX.length)
+    if (uid.includes(":")) continue
     const raw = await redis().get(key)
-    if (raw) result.push([key.slice(PREFIX.length), JSON.parse(raw)])
+    if (raw) result.push([uid, JSON.parse(raw)])
   }
   return result
 }

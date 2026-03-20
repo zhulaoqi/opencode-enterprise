@@ -55,7 +55,7 @@ export function SessionList() {
   }
 
   return (
-    <div class="w-70 flex flex-col border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
+    <div class="w-70 h-full flex flex-col border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)]">
       <div class="p-2 flex gap-2">
         <button
           class={`flex-1 flex items-center justify-center gap-2 h-9 rounded-[var(--radius-md)] ${connected() ? "bg-[var(--color-primary)] text-[var(--color-on-primary)] hover:bg-[var(--color-primary-hover)]" : "bg-[var(--color-muted)] text-[var(--color-text-muted)] cursor-not-allowed"}`}
@@ -78,11 +78,11 @@ export function SessionList() {
           />
         </div>
       </div>
-      <div class="flex-1 overflow-auto">
+      <div class="flex-1 overflow-auto relative">
         <For each={filtered()}>
           {(s) => (
             <div
-              class={`group flex items-center gap-1 px-3 py-2.5 rounded-[var(--radius-md)] mx-2 mb-1 hover:bg-[var(--color-muted)] ${activeId() === s.id ? "bg-[var(--color-primary-light)] border-l-2 border-l-[var(--color-primary)]" : ""}`}
+              class={`group flex items-center gap-1 px-3 py-2.5 rounded-[var(--radius-md)] mx-2 mb-1 border-l-2 transition-colors ${activeId() === s.id ? "bg-[var(--color-primary-light)] border-l-[var(--color-primary)]" : "border-l-transparent hover:bg-[var(--color-muted)]"}`}
             >
               {editing() === s.id ? (
                 <input
@@ -128,6 +128,9 @@ export function SessionList() {
             </div>
           )}
         </For>
+      </div>
+      <div class="px-4 py-3 border-t border-[var(--color-border)] text-center">
+        <p class="text-xs text-[var(--color-text-muted)]">共 {filtered().length} 个对话</p>
       </div>
     </div>
   )

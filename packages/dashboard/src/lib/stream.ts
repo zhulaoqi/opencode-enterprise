@@ -28,7 +28,8 @@ export function connect() {
 
   source.onmessage = (e) => {
     try {
-      const msg = JSON.parse(e.data)
+      const raw = JSON.parse(e.data)
+      const msg = raw.payload ?? raw
       emit(msg.type, msg.properties ?? msg)
     } catch {}
   }

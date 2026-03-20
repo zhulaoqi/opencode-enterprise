@@ -13,7 +13,7 @@ export const [model, setModel] = createSignal("")
 function ModelOption(props: { m: Model; active: boolean; onSelect: () => void }) {
   return (
     <button
-      class={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${props.active ? "bg-blue-50 text-[var(--color-primary)]" : "text-[var(--color-text-primary)] hover:bg-[var(--color-muted)]"}`}
+      class={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${props.active ? "bg-[var(--color-primary-light)] text-[var(--color-primary)]" : "text-[var(--color-text-primary)] hover:bg-[var(--color-muted)]"}`}
       onClick={props.onSelect}
     >
       <Sparkles size={14} class={props.active ? "text-[var(--color-primary)]" : "text-[var(--color-text-muted)]"} />

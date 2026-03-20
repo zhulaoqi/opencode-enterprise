@@ -54,6 +54,7 @@ console.log(`[platform] starting on :${port}`)
 
 export default {
   port,
+  idleTimeout: 255,
   fetch: (req: Request, s: { upgrade: (r: Request, opts?: { data?: unknown }) => boolean }) =>
     fetch(req, s),
   websocket: {

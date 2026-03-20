@@ -10,7 +10,7 @@ import { Loader, WifiOff, RefreshCw } from "lucide-solid"
 type McpItem = { id: string; name: string; authorized?: boolean }
 
 const [mcps] = createResource(
-  activeId,
+  () => true,
   () => api.get<{ mcps: McpItem[] }>("/mcp/market").then((res) => (res.mcps ?? []).filter((m) => m.authorized)),
 )
 
@@ -21,7 +21,7 @@ export default function Chat() {
 
   return (
     <div class="flex h-full relative">
-      <div class="hidden md:block shrink-0">
+      <div class="hidden md:flex shrink-0 h-full">
         <SessionList />
       </div>
       <div class="flex-1 flex flex-col min-w-0">

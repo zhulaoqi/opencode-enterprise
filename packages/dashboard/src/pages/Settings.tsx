@@ -26,29 +26,36 @@ export default function Settings() {
               <p class="text-sm text-[var(--color-text-muted)]">{user()?.email ?? "-"}</p>
             </div>
           </div>
-          <div class="mt-4 pt-4 border-t border-[var(--color-border)]">
-            <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">我的角色</h3>
-            <div class="flex flex-wrap gap-2">
-              <For each={user()?.roles?.filter((r): r is RoleName => r in ROLES) ?? []}>
-                {(r) => (
-                  <div class={`px-2.5 py-1.5 rounded-[var(--radius-md)] border text-xs ${roleBadge(r)}`}>
-                    <span class="font-medium">{ROLES[r].label}</span>
-                    <span class="ml-1.5 opacity-70">{ROLES[r].desc}</span>
-                  </div>
-                )}
-              </For>
+          <Show when={(user()?.roles?.length ?? 0) > 0}>
+            <div class="mt-4 pt-3 border-t border-[var(--color-border)]">
+              <div class="flex flex-wrap items-center gap-2">
+                <For each={user()?.roles?.filter((r): r is RoleName => r in ROLES) ?? []}>
+                  {(r) => (
+                    <span class={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${roleBadge(r)}`}>
+                      <span class={`w-1.5 h-1.5 rounded-full ${ROLES[r].dot}`} />
+                      {ROLES[r].label}
+                    </span>
+                  )}
+                </For>
+              </div>
             </div>
-            <Show when={user()?.departments?.length}>
-              <p class="text-xs text-[var(--color-text-muted)] mt-2">
-                部门：{user()!.departments!.join(", ")}
-              </p>
-            </Show>
-            <Show when={user()?.level}>
-              <p class="text-xs text-[var(--color-text-muted)] mt-1">
-                职级：{user()!.level}
-              </p>
-            </Show>
-          </div>
+          </Show>
+          <Show when={user()?.departments?.length || user()?.level}>
+            <div class="flex flex-wrap gap-x-4 gap-y-1 mt-3 pt-3 border-t border-[var(--color-border)]/50">
+              <Show when={user()?.departments?.length}>
+                <p class="text-xs text-[var(--color-text-muted)]">
+                  <span class="font-medium text-[var(--color-text-secondary)]">部门</span>
+                  <span class="ml-1.5">{user()!.departments!.join("、")}</span>
+                </p>
+              </Show>
+              <Show when={user()?.level}>
+                <p class="text-xs text-[var(--color-text-muted)]">
+                  <span class="font-medium text-[var(--color-text-secondary)]">职级</span>
+                  <span class="ml-1.5">{user()!.level}</span>
+                </p>
+              </Show>
+            </div>
+          </Show>
         </Card>
 
         {/* Appearance */}
@@ -81,7 +88,7 @@ export default function Settings() {
         {/* Logout */}
         <div class="pt-4 border-t border-[var(--color-border)]">
           <button
-            class="px-4 py-2 rounded-[var(--radius-md)] text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+            class="px-4 py-2 rounded-[var(--radius-md)] text-sm font-medium bg-[var(--color-error)] text-white hover:opacity-90 transition-colors"
             onClick={logout}
           >
             退出登录

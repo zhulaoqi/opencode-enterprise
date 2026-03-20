@@ -53,7 +53,7 @@ function bar(value: number, color: string) {
 
 function ScopeIcon(props: { type: string; size?: number }) {
   const s = props.size ?? 16
-  if (props.type === "global") return <Globe size={s} class="text-blue-500" />
+  if (props.type === "global") return <Globe size={s} class="text-[var(--color-primary)]" />
   return <User size={s} class="text-emerald-500" />
 }
 
@@ -150,8 +150,8 @@ export default function Quotas() {
         <Show when={quotas().length === 0}>
           <Card>
             <div class="py-16 text-center">
-              <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-blue-50 flex items-center justify-center">
-                <Globe size={28} class="text-blue-400" />
+              <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-[var(--color-primary-light)] flex items-center justify-center">
+                <Globe size={28} class="text-[var(--color-primary)] opacity-70" />
               </div>
               <h3 class="text-base font-semibold text-[var(--color-text-primary)] mb-1">还没有配额规则</h3>
               <p class="text-sm text-[var(--color-text-muted)] mb-5 max-w-xs mx-auto">
@@ -326,7 +326,7 @@ export default function Quotas() {
                     <For each={["global", "user"] as const}>
                       {(t) => (
                         <button
-                          class={`flex flex-col items-center gap-1.5 py-3 rounded-xl border text-sm transition-all ${form().scope_type === t ? "border-blue-500 bg-blue-50 text-blue-700 shadow-sm" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)]"}`}
+                          class={`flex flex-col items-center gap-1.5 py-3 rounded-xl border text-sm transition-all ${form().scope_type === t ? "border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)] shadow-sm" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)]"}`}
                           onClick={() => setForm((f) => ({ ...f, scope_type: t, scope_id: t === "global" ? "" : f.scope_id }))}
                         >
                           <ScopeIcon type={t} size={20} />
@@ -357,7 +357,7 @@ export default function Quotas() {
                     <For each={["daily", "monthly"] as const}>
                       {(p) => (
                         <button
-                          class={`h-10 rounded-xl border text-sm font-medium transition-all ${form().period === p ? "border-blue-500 bg-blue-50 text-blue-700" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)]"}`}
+                          class={`h-10 rounded-xl border text-sm font-medium transition-all ${form().period === p ? "border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)]" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)]"}`}
                           onClick={() => setForm((f) => ({ ...f, period: p }))}
                         >
                           {periodLabel[p]}重置

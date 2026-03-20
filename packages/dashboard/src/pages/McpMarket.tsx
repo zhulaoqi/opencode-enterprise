@@ -161,7 +161,7 @@ export default function McpMarket() {
               <For each={["stdio", "http", "sse"]}>
                 {(t) => (
                   <button
-                    class={`py-2.5 px-3 rounded-lg border text-sm text-center transition-all ${form().type === t ? "border-[var(--color-primary)] bg-blue-50 text-[var(--color-primary)] font-medium shadow-sm" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)]"}`}
+                    class={`py-2.5 px-3 rounded-lg border text-sm text-center transition-all ${form().type === t ? "border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)] font-medium shadow-sm" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)]"}`}
                     onClick={() => patch("type", t)}
                   >
                     <div class="font-mono font-medium">{t}</div>
@@ -187,7 +187,7 @@ export default function McpMarket() {
                   const info = visLabels[v]
                   return (
                     <button
-                      class={`py-2 px-3 rounded-lg border text-sm text-center transition-all ${form().visibility === v ? "border-[var(--color-primary)] bg-blue-50 text-[var(--color-primary)] font-medium shadow-sm" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)]"}`}
+                      class={`py-2 px-3 rounded-lg border text-sm text-center transition-all ${form().visibility === v ? "border-[var(--color-primary)] bg-[var(--color-primary-light)] text-[var(--color-primary)] font-medium shadow-sm" : "border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)]"}`}
                       onClick={() => patch("visibility", v)}
                     >
                       <div class="font-medium">{info.label}</div>

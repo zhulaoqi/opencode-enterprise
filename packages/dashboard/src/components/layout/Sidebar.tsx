@@ -1,9 +1,11 @@
 import { A } from "@solidjs/router"
-import { MessageSquare, Package, BarChart3, Users, Settings, ChevronLeft, ChevronRight, PieChart, FileText, FolderOpen, Cpu, Wifi, WifiOff, Loader, Server } from "lucide-solid"
+import { MessageSquare, Package, BarChart3, Users, Settings, ChevronLeft, ChevronRight, PieChart, FileText, FolderOpen, Cpu, Wifi, WifiOff, Loader, Server, Shield, Code2, Wallet } from "lucide-solid"
 import { createSignal, Show } from "solid-js"
 import { user } from "../../stores/auth"
 import { status } from "../../lib/worker"
-import { ROLES, primary, badge as roleBadge } from "../../lib/roles"
+import { ROLES, primary, type RoleName } from "../../lib/roles"
+
+const ROLE_ICON: Record<RoleName, typeof Shield> = { admin: Shield, manager: BarChart3, finance: Wallet, developer: Code2 }
 
 type NavItem = {
   href: string
@@ -109,21 +111,22 @@ export function Sidebar() {
               )}
             </div>
             <div class="min-w-0">
-              <p class="text-sm font-medium truncate">
-                {status() === "ready" ? "已就绪" : status() === "connecting" ? "连接中..." : "离线"}
+              <p class="text-sm font-medium truncate flex items-center gap-1.5">
+                <span class="truncate">{user()?.name ?? "Worker"}</span>
+                {(() => {
+                  const r = primary(user()?.roles ?? [])
+                  if (!r) return null
+                  const Icon = ROLE_ICON[r]
+                  return (
+                    <span class={`inline-flex items-center justify-center w-5 h-5 rounded shrink-0 ${ROLES[r].pill}`} title={ROLES[r].label}>
+                      <Icon size={12} />
+                    </span>
+                  )
+                })()}
               </p>
               <p class="text-xs text-[var(--color-text-muted)] truncate">
-                {user()?.name ?? "Worker"}
+                {status() === "ready" ? "已就绪" : status() === "connecting" ? "连接中..." : "离线"}
               </p>
-              {(() => {
-                const r = primary(user()?.roles ?? [])
-                if (!r) return null
-                return (
-                  <span class={`inline-block mt-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded border ${roleBadge(r)}`}>
-                    {ROLES[r].label}
-                  </span>
-                )
-              })()}
             </div>
           </div>
         )}

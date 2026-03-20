@@ -219,7 +219,7 @@ export default function Models() {
                 onDragEnd={() => { setDragIdx(-1); setOverIdx(-1) }}
                 class={`group rounded-xl border p-4 transition-all cursor-grab active:cursor-grabbing ${
                   overIdx() === idx() && dragIdx() !== idx()
-                    ? "border-[var(--color-primary)] bg-blue-50/50 ring-1 ring-[var(--color-primary)]"
+                    ? "border-[var(--color-primary)] bg-[var(--color-primary-light)] ring-1 ring-[var(--color-primary)]"
                     : dragIdx() === idx()
                       ? "opacity-40 border-dashed border-[var(--color-border)]"
                       : "border-[var(--color-border)] bg-[var(--color-bg-elevated)] hover:border-[var(--color-border-focus)]"
@@ -237,7 +237,7 @@ export default function Models() {
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
                       <span class="font-semibold text-[var(--color-text-primary)] truncate">{m.name}</span>
-                      <span class={`shrink-0 text-[11px] px-2 py-0.5 rounded-full font-medium ${m.enabled ? "bg-green-500/10 text-green-600" : "bg-[var(--color-muted)] text-[var(--color-text-muted)]"}`}>
+                      <span class={`shrink-0 text-[11px] px-2 py-0.5 rounded-full font-medium ${m.enabled ? "bg-[var(--color-success-light)] text-[var(--color-success)]" : "bg-[var(--color-muted)] text-[var(--color-text-muted)]"}`}>
                         {m.enabled ? "启用" : "禁用"}
                       </span>
                     </div>

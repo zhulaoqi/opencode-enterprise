@@ -72,7 +72,7 @@ export function RoleEditor(props: Props) {
             <div class="space-y-1.5">
               <For each={userRoles()?.roles ?? []}>
                 {(r) => (
-                  <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-blue-50 border border-blue-100">
+                  <div class="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--color-primary-light)] border border-[var(--color-border)]">
                     <div>
                       <span class="text-sm font-medium text-[var(--color-text-primary)]">{label(r.role_name)}</span>
                       <span class="text-xs text-[var(--color-text-muted)] ml-2 font-mono">{r.role_name}</span>
