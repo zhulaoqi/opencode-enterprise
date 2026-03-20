@@ -4,8 +4,8 @@ import { MessageList } from "../components/chat/MessageList"
 import { ChatInput } from "../components/chat/ChatInput"
 import { loadSessions, activeId } from "../stores/chat"
 import { api } from "../lib/api"
-import { ready as connected } from "../lib/worker"
-import { Loader } from "lucide-solid"
+import { status, exhausted, attempts, retryNow } from "../lib/worker"
+import { Loader, WifiOff, RefreshCw } from "lucide-solid"
 
 type McpItem = { id: string; name: string; authorized?: boolean }
 
@@ -51,12 +51,35 @@ export default function Chat() {
           </div>
         )}
       </div>
-      <Show when={!connected()}>
+      <Show when={status() !== "ready"}>
         <div class="absolute inset-0 z-10 flex items-center justify-center bg-[var(--color-bg)]/60 backdrop-blur-[2px]">
           <div class="flex flex-col items-center gap-3 p-6 rounded-[var(--radius-lg)] bg-[var(--color-bg-elevated)] border border-[var(--color-border)] shadow-[var(--shadow-lg)]">
-            <Loader size={24} class="animate-spin text-[var(--color-primary)]" />
-            <p class="text-sm font-medium text-[var(--color-text-primary)]">正在启动工作区...</p>
-            <p class="text-xs text-[var(--color-text-muted)]">首次加载可能需要几秒钟</p>
+            {status() === "connecting" ? (
+              <>
+                <Loader size={24} class="animate-spin text-[var(--color-primary)]" />
+                <p class="text-sm font-medium text-[var(--color-text-primary)]">正在启动工作区...</p>
+                <p class="text-xs text-[var(--color-text-muted)]">首次加载可能需要几秒钟</p>
+              </>
+            ) : exhausted() ? (
+              <>
+                <WifiOff size={24} class="text-[var(--color-error)]" />
+                <p class="text-sm font-medium text-[var(--color-text-primary)]">连接失败</p>
+                <p class="text-xs text-[var(--color-text-muted)]">已尝试 {attempts()} 次，工作区可能暂时不可用</p>
+                <button
+                  class="mt-2 flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)] bg-[var(--color-primary)] text-[var(--color-on-primary)] text-sm font-medium hover:bg-[var(--color-primary-hover)] transition-colors"
+                  onClick={retryNow}
+                >
+                  <RefreshCw size={14} />
+                  重新连接
+                </button>
+              </>
+            ) : (
+              <>
+                <Loader size={24} class="animate-spin text-amber-500" />
+                <p class="text-sm font-medium text-[var(--color-text-primary)]">连接已断开，正在重连...</p>
+                <p class="text-xs text-[var(--color-text-muted)]">第 {attempts()} 次尝试</p>
+              </>
+            )}
           </div>
         </div>
       </Show>

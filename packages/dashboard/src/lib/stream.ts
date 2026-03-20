@@ -1,23 +1,28 @@
 import { createSignal } from "solid-js"
-import { sseUrl } from "./worker"
+import { sseUrl, markReady, markDisconnected, status as workerStatus } from "./worker"
 import { token } from "../stores/auth"
 
 type Handler = (data: Record<string, unknown>) => void
 
 const handlers = new Map<string, Set<Handler>>()
 let source: EventSource | null = null
+let debounce: ReturnType<typeof setTimeout> | null = null
 
 const [streaming, setStreaming] = createSignal(false)
 export { streaming }
 
 export function connect() {
   close()
+  if (workerStatus() === "disconnected") return
   const href = sseUrl("/global/event")
   const tk = token()
-  source = new EventSource(tk ? `${href}${href.includes("?") ? "&" : "?"}token=${tk}` : href)
+  const url = tk ? `${href}${href.includes("?") ? "&" : "?"}token=${tk}` : href
+  source = new EventSource(url)
 
   source.onopen = () => {
+    if (debounce) { clearTimeout(debounce); debounce = null }
     setStreaming(true)
+    markReady()
     console.log("[sse] connected")
   }
 
@@ -30,11 +35,18 @@ export function connect() {
 
   source.onerror = () => {
     setStreaming(false)
-    console.warn("[sse] error, will auto-reconnect")
+    if (debounce) return
+    debounce = setTimeout(() => {
+      debounce = null
+      console.warn("[sse] error, triggering reconnect")
+      close()
+      markDisconnected()
+    }, 1000)
   }
 }
 
 export function close() {
+  if (debounce) { clearTimeout(debounce); debounce = null }
   source?.close()
   source = null
   setStreaming(false)

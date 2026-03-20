@@ -9,6 +9,7 @@ import * as adapterRegistry from "./im-adapter/registry"
 import * as feishuWs from "./im-adapter/feishu/ws-receiver"
 import { register as registerHooks } from "./hooks/register"
 import * as pool from "./worker-manager/pool"
+import * as manager from "./worker-manager/manager"
 
 const port = Number(process.env.PORT ?? 3100)
 
@@ -23,6 +24,7 @@ audit.startFlush()
 
 ws.startSweeper()
 pool.start()
+manager.recover().catch((e) => console.warn("[worker-manager] recover failed:", e))
 feishuWs.start().catch((e) => console.warn("[feishu-ws] auto-start skipped:", e))
 
 function fetch(req: Request, server: { upgrade: (r: Request, opts?: { data?: unknown }) => boolean }) {

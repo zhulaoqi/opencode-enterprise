@@ -186,39 +186,55 @@ function startPolling() {
   }, 2000)
 }
 
-sseOn("session.prompt.completed", (msg) => {
-  clearInterval(pollTimer)
-  clearTimeout(streamTimeout)
-  setIsStreaming(false)
-  const payload = msg as { sessionID?: string }
-  if (payload.sessionID === activeId()) {
+sseOn("session.status", (msg) => {
+  const payload = msg as { sessionID?: string; status?: { type: string } }
+  if (payload.sessionID !== activeId()) return
+  if (payload.status?.type === "idle") {
+    clearInterval(pollTimer)
+    clearTimeout(streamTimeout)
+    setIsStreaming(false)
+    setStreaming("")
     loadMessages(activeId())
+    loadSessions()
   }
-  setStreaming("")
 })
 
-sseOn("session.prompt.error", (msg) => {
+sseOn("session.error", (msg) => {
+  const payload = msg as { sessionID?: string; error?: { name?: string; message?: string } }
+  if (payload.sessionID && payload.sessionID !== activeId()) return
   clearInterval(pollTimer)
   clearTimeout(streamTimeout)
   setIsStreaming(false)
   setStreaming("")
-  const payload = msg as { sessionID?: string; error?: string }
-  if (payload.sessionID === activeId() && payload.error) {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        time: Date.now(),
-        text: `⚠️ ${payload.error}`,
-      },
-    ])
+  const text = payload.error?.message ?? JSON.stringify(payload.error)
+  setMessages((prev) => [
+    ...prev,
+    {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      time: Date.now(),
+      text: `⚠️ ${text}`,
+    },
+  ])
+})
+
+sseOn("message.updated", (msg) => {
+  const payload = msg as { info?: { sessionID?: string } }
+  if (payload.info?.sessionID === activeId()) {
+    loadMessages(activeId())
+  }
+})
+
+sseOn("message.part.updated", (msg) => {
+  const payload = msg as { part?: { sessionID?: string } }
+  if (payload.part?.sessionID === activeId() && isStreaming()) {
+    loadMessages(activeId())
   }
 })
 
 sseOn("session.updated", (msg) => {
-  const payload = msg as { id?: string }
-  if (payload.id === activeId()) {
-    loadMessages(activeId())
+  const payload = msg as { info?: { id?: string } }
+  if (payload.info?.id === activeId()) {
+    loadSessions()
   }
 })

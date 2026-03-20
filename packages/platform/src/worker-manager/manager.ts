@@ -12,7 +12,7 @@ const pending = new Map<string, Promise<Worker>>()
 
 type Worker = { port: number; secret: string; container: string }
 
-async function healthy(port: number): Promise<boolean> {
+export async function healthy(port: number): Promise<boolean> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), HEALTH_TIMEOUT)
   try {
@@ -103,6 +103,18 @@ export async function get(uid: string): Promise<Worker> {
   const p = spawn(uid).finally(() => pending.delete(uid))
   pending.set(uid, p)
   return p
+}
+
+export async function recover() {
+  const entries = await registry.all()
+  for (const [uid, entry] of entries) {
+    if (await healthy(entry.port)) {
+      console.log(`[worker-manager] recovered uid=${uid} port=${entry.port}`)
+    } else {
+      await registry.del(uid)
+      console.log(`[worker-manager] cleaned stale uid=${uid}`)
+    }
+  }
 }
 
 export async function stop(uid: string) {

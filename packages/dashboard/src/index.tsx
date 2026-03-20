@@ -2,7 +2,6 @@ import { render } from "solid-js/web"
 import { App } from "./app"
 import { token, setUser, logout } from "./stores/auth"
 import * as worker from "./lib/worker"
-import * as stream from "./lib/stream"
 import "./styles/global.css"
 
 async function boot() {
@@ -13,12 +12,7 @@ async function boot() {
       })
       if (res.ok) {
         setUser(await res.json())
-        try {
-          await worker.connect()
-          stream.connect()
-        } catch (e) {
-          console.warn("[boot] worker connect failed, will retry on interaction:", e)
-        }
+        worker.connect()
       } else {
         logout()
       }
