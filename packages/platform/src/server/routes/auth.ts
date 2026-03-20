@@ -50,6 +50,7 @@ export const auth = new Hono()
 
         await rbac.seed(db)
         await rbac.bootstrap(db, user.internal_id)
+        await rbac.autoAssign(db, user.internal_id)
         const names = await rbac.userRoleNames(db, user.internal_id)
         const roles = ["authenticated", ...names]
         console.log("[auth] user roles:", roles)

@@ -1,9 +1,10 @@
-import { Show } from "solid-js"
+import { Show, For } from "solid-js"
 import { theme, setTheme, resolved } from "../stores/theme"
 import { user, logout } from "../stores/auth"
 import { Avatar } from "../components/ui/Avatar"
 import { Card } from "../components/ui/Card"
 import { ChannelConfig } from "../components/settings/ChannelConfig"
+import { ROLES, badge as roleBadge, type RoleName } from "../lib/roles"
 
 function isAdmin() {
   const u = user()
@@ -24,6 +25,29 @@ export default function Settings() {
               <p class="font-medium text-[var(--color-text-primary)]">{user()?.name ?? "-"}</p>
               <p class="text-sm text-[var(--color-text-muted)]">{user()?.email ?? "-"}</p>
             </div>
+          </div>
+          <div class="mt-4 pt-4 border-t border-[var(--color-border)]">
+            <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">我的角色</h3>
+            <div class="flex flex-wrap gap-2">
+              <For each={user()?.roles?.filter((r): r is RoleName => r in ROLES) ?? []}>
+                {(r) => (
+                  <div class={`px-2.5 py-1.5 rounded-[var(--radius-md)] border text-xs ${roleBadge(r)}`}>
+                    <span class="font-medium">{ROLES[r].label}</span>
+                    <span class="ml-1.5 opacity-70">{ROLES[r].desc}</span>
+                  </div>
+                )}
+              </For>
+            </div>
+            <Show when={user()?.departments?.length}>
+              <p class="text-xs text-[var(--color-text-muted)] mt-2">
+                部门：{user()!.departments!.join(", ")}
+              </p>
+            </Show>
+            <Show when={user()?.level}>
+              <p class="text-xs text-[var(--color-text-muted)] mt-1">
+                职级：{user()!.level}
+              </p>
+            </Show>
           </div>
         </Card>
 

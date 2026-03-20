@@ -1,8 +1,9 @@
 import { A } from "@solidjs/router"
-import { MessageSquare, Package, BarChart3, Users, Settings, ChevronLeft, ChevronRight, PieChart, FileText, FolderOpen, Cpu, Wifi, WifiOff, Loader } from "lucide-solid"
+import { MessageSquare, Package, BarChart3, Users, Settings, ChevronLeft, ChevronRight, PieChart, FileText, FolderOpen, Cpu, Wifi, WifiOff, Loader, Server } from "lucide-solid"
 import { createSignal, Show } from "solid-js"
 import { user } from "../../stores/auth"
 import { status } from "../../lib/worker"
+import { ROLES, primary, badge as roleBadge } from "../../lib/roles"
 
 type NavItem = {
   href: string
@@ -19,6 +20,7 @@ const main: NavItem[] = [
   { href: "/admin/quotas", label: "配额管理", icon: PieChart, roles: ["admin", "manager"] },
   { href: "/admin/audit", label: "审计日志", icon: FileText, roles: ["admin", "manager"] },
   { href: "/admin/models", label: "模型管理", icon: Cpu, roles: ["admin"] },
+  { href: "/admin/workers", label: "节点管理", icon: Server, roles: ["admin", "manager"] },
   { href: "/settings", label: "配置", icon: Settings },
 ]
 
@@ -113,6 +115,15 @@ export function Sidebar() {
               <p class="text-xs text-[var(--color-text-muted)] truncate">
                 {user()?.name ?? "Worker"}
               </p>
+              {(() => {
+                const r = primary(user()?.roles ?? [])
+                if (!r) return null
+                return (
+                  <span class={`inline-block mt-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded border ${roleBadge(r)}`}>
+                    {ROLES[r].label}
+                  </span>
+                )
+              })()}
             </div>
           </div>
         )}

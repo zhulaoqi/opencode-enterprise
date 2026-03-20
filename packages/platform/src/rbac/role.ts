@@ -4,15 +4,17 @@ import type { Database } from "@/db"
 import { merge } from "./permission"
 
 export async function seed(db: Database) {
-  const defaults: { name: string; display_name: string; permissions: RolePermission[] }[] = [
+  const defaults: { name: string; display_name: string; description: string; permissions: RolePermission[] }[] = [
     {
       name: "developer",
       display_name: "开发者",
+      description: "使用 AI 对话、执行代码任务，适合所有研发人员",
       permissions: [{ type: "feature", pattern: "chat", action: "allow" }],
     },
     {
       name: "finance",
       display_name: "财务",
+      description: "在开发者基础上可审批资源申请，适合财务/审批人员",
       permissions: [
         { type: "feature", pattern: "chat", action: "allow" },
         { type: "feature", pattern: "approval", action: "allow" },
@@ -21,6 +23,7 @@ export async function seed(db: Database) {
     {
       name: "manager",
       display_name: "管理者",
+      description: "可查看仪表盘、管理配额、查看节点状态（只读），适合团队负责人",
       permissions: [
         { type: "feature", pattern: "dashboard", action: "allow" },
         { type: "feature", pattern: "quota_manage", action: "allow" },
@@ -30,6 +33,7 @@ export async function seed(db: Database) {
     {
       name: "admin",
       display_name: "管理员",
+      description: "全部权限，包括用户管理、模型配置、节点操控，适合系统运维人员",
       permissions: [{ type: "feature", pattern: "*", action: "allow" }],
     },
   ]
@@ -39,7 +43,7 @@ export async function seed(db: Database) {
       .values({ ...r, is_system: true })
       .onConflictDoUpdate({
         target: role.name,
-        set: { display_name: r.display_name, permissions: r.permissions },
+        set: { display_name: r.display_name, description: r.description, permissions: r.permissions },
       })
   }
 }
@@ -80,4 +84,10 @@ export async function userRoles(db: Database, userId: string) {
 
 export function all(db: Database) {
   return db.select().from(role)
+}
+
+export async function autoAssign(db: Database, userId: string) {
+  const dev = await db.select().from(role).where(eq(role.name, "developer")).then((r) => r[0])
+  if (!dev) return
+  await db.insert(user_role).values({ user_id: userId, role_id: dev.id }).onConflictDoNothing()
 }
