@@ -11,6 +11,7 @@ import { dashboardRoutes } from "./routes/dashboard"
 import { imRoutes } from "./routes/im"
 import { modelRoutes } from "./routes/model"
 import { channelRoutes } from "./routes/channel"
+import { workerRoutes } from "./routes/worker"
 
 export function server() {
   const app = new Hono()
@@ -26,6 +27,7 @@ export function server() {
     .route("/api/im", imRoutes)
     .route("/api/models", modelRoutes)
     .route("/api/admin/channels", channelRoutes)
+    .route("/api/worker", workerRoutes)
 
   return app
 }

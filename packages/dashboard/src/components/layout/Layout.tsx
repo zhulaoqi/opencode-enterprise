@@ -3,7 +3,7 @@ import { Sidebar } from "./Sidebar"
 import { Topbar } from "./Topbar"
 import { MobileNav } from "./MobileNav"
 import { Toast } from "../ui/Toast"
-import { connected } from "../../lib/ws"
+import { ready as connected } from "../../lib/worker"
 
 export function Layout(props: ParentProps) {
   return (

@@ -8,21 +8,28 @@
 opencode/                      ← 项目根目录（monorepo）
 ├── packages/
 │   ├── opencode/              # OpenCode Core（AI 引擎 + SessionHooks）
-│   ├── platform/              # 企业平台后端（Hono API + BullMQ Worker）
+│   ├── platform/              # 企业平台后端（Hono API + Worker Manager）
 │   └── dashboard/             # 企业 Web Dashboard（Solid.js + Vite）
+├── nginx/                     # 生产环境 nginx 反向代理配置
+├── docker/                    # PgBouncer 等基础设施配置
 ├── package.json               # 根 workspace 配置
 └── bun.lock                   # 依赖锁文件
 ```
+
+**架构概览**：
+
+采用 **Worker-per-User** 架构。每个登录用户获得一个独立的 OpenCode 工作节点（进程或 Docker 容器），由 Platform Worker Manager 统一管理。前端直连 Worker 进行 AI 对话，Platform 只负责管理层（认证、计费、MCP、模型配置）。
 
 **运行时组件**：
 
 | 组件 | 启动命令 | 端口 | 说明 |
 |------|----------|------|------|
-| API Server | `bun run dev` (platform) | **3100** | REST API + WebSocket |
-| Worker Pool | `bun run worker` (platform) | 无端口 | BullMQ 消费者，AI 推理执行 |
+| Platform Server | `bun run dev` (platform) | **3100** | REST API + WebSocket + Worker Manager |
+| Worker（每用户） | 自动由 Platform 启动 | **4200+** | 独立的 OpenCode 实例，处理 AI 对话 |
 | Dashboard Dev | `bun run dev` (dashboard) | **3200** | Vite 开发服务器，自动代理 API |
-| PostgreSQL | 独立服务 | **5432** | 主数据库（Drizzle ORM） |
-| Redis | 独立服务 | **6379** | 缓存 / BullMQ 队列 / Pub/Sub |
+| PostgreSQL | 独立服务 | **5432** | 全局管理数据（用户、配额、MCP、模型） |
+| Redis | 独立服务 | **6379** | Worker 注册表 / 配额缓存 / 发布订阅 |
+| PgBouncer | 独立服务（生产） | **6432** | PostgreSQL 连接池（生产环境推荐） |
 
 ---
 
@@ -127,7 +134,10 @@ EOF
 | `JWT_EXPIRY` | 否 | JWT 过期时间 | 默认 `2h` |
 | `DASHBOARD_URL` | 否 | Dashboard 外部访问地址 | 默认 `http://localhost:3200` |
 | `PORT` | 否 | API 服务端口 | 默认 `3100` |
-| `WORKER_CONCURRENCY` | 否 | Worker 并发数 | 默认 `4` |
+| `WORKER_MODE` | 否 | Worker 运行模式 | `process`（默认）或 `docker` |
+| `MAX_WORKERS` | 否 | 最大 Worker 数量 | 默认 `200` |
+| `WORKER_IDLE_MS` | 否 | Worker 空闲超时 | 默认 `1800000`（30 分钟） |
+| `WORKER_BASE_URL` | 否 | 生产环境 Worker 基础 URL | 如 `https://your-domain.com/w` |
 
 > **FEISHU_ENCRYPT_KEY / FEISHU_VERIFICATION_TOKEN 获取路径**：
 > 1. 打开 [飞书开放平台](https://open.feishu.cn/app) → 进入你的应用
@@ -188,9 +198,9 @@ docker exec <容器名> psql -U <用户名> -d opencode -c "\dt"
 > - ORM 为 **Drizzle ORM**，schema 定义在 `src/**/*.sql.ts` 文件中
 > - `drizzle.config.ts` 通过 `process.env.DATABASE_URL` 读取连接串，需要 `.env` 先配好
 
-### 第四步：启动服务（开 3 个终端）
+### 第四步：启动服务（开 2 个终端）
 
-**终端 1 — API Server**（后端 API + WebSocket）：
+**终端 1 — Platform Server**（后端 API + Worker Manager）：
 
 ```bash
 cd opencode/packages/platform
@@ -200,23 +210,13 @@ bun run dev
 预期输出：
 ```
 [platform] hooks registered with OpenCode SessionHooks
+[pool] started max=200 idle=1800000ms
 [platform] starting on :3100
 ```
 
-**终端 2 — Worker Pool**（BullMQ 消费者，处理 AI 对话）：
+> Worker Manager 已内置在 Platform 中，用户登录后会自动为其启动独立的 OpenCode Worker 进程。无需手动启动 Worker。
 
-```bash
-cd opencode/packages/platform
-bun run worker
-```
-
-预期输出：
-```
-[worker] starting with concurrency=4
-[worker] ready, waiting for jobs...
-```
-
-**终端 3 — Dashboard 前端**：
+**终端 2 — Dashboard 前端**：
 
 ```bash
 cd opencode/packages/dashboard
@@ -230,7 +230,7 @@ VITE v7.x.x  ready in xxx ms
   ➜  Local:   http://localhost:3200/
 ```
 
-> Dashboard Vite 开发服务器已配置代理：`/api` → `http://localhost:3100`，`/ws` → `ws://localhost:3100`。前端直接访问 `http://localhost:3200` 即可，无需跨域配置。
+> Dashboard Vite 开发服务器已配置代理：`/api` → `http://localhost:3100`。前端直接访问 `http://localhost:3200` 即可。对话数据通过 Worker 的 SSE 接口实时推送。
 
 ### 第五步：验证服务正常
 
@@ -316,13 +316,20 @@ bun run build
 
 ## 5. Docker 镜像构建与部署
 
-### 5.1 创建 Dockerfile
+### 5.1 镜像说明
 
-在**项目根目录** `opencode/` 下创建以下文件：
+| 镜像 | Dockerfile | 说明 |
+|------|-----------|------|
+| `opencode-platform` | `Dockerfile.api` | Platform Server（API + Worker Manager） |
+| `opencode-worker` | `packages/platform/worker.Dockerfile` | 单个 OpenCode Worker 实例 |
+| `opencode-dashboard` | `Dockerfile.dashboard` | Dashboard 静态资源 |
 
-**`Dockerfile.api`** — API Server 镜像：
+### 5.2 构建镜像
 
 ```bash
+# 在项目根目录 opencode/ 下执行
+
+# 构建 Platform Server 镜像
 cat > Dockerfile.api << 'DOCKERFILE'
 FROM oven/bun:1 AS build
 WORKDIR /app
@@ -339,31 +346,13 @@ COPY --from=build /app .
 EXPOSE 3100
 CMD ["bun", "run", "packages/platform/src/index.ts"]
 DOCKERFILE
-```
 
-**`Dockerfile.worker`** — Worker 镜像：
+docker build -f Dockerfile.api -t opencode-platform:latest .
 
-```bash
-cat > Dockerfile.worker << 'DOCKERFILE'
-FROM oven/bun:1 AS build
-WORKDIR /app
-COPY package.json bun.lock ./
-COPY packages/opencode/package.json packages/opencode/
-COPY packages/platform/package.json packages/platform/
-COPY packages/dashboard/package.json packages/dashboard/
-RUN bun install --frozen-lockfile
-COPY . .
+# 构建 Worker 镜像（Worker-per-User，由 Platform 按需启动）
+docker build -f packages/platform/worker.Dockerfile -t opencode-worker:latest .
 
-FROM oven/bun:1
-WORKDIR /app
-COPY --from=build /app .
-CMD ["bun", "run", "packages/platform/src/worker/runner.ts"]
-DOCKERFILE
-```
-
-**`Dockerfile.dashboard`** — Dashboard 静态资源镜像：
-
-```bash
+# 构建 Dashboard 镜像
 cat > Dockerfile.dashboard << 'DOCKERFILE'
 FROM oven/bun:1 AS build
 WORKDIR /app
@@ -377,48 +366,27 @@ RUN cd packages/dashboard && bun run build
 
 FROM nginx:1.27-alpine
 COPY --from=build /app/packages/dashboard/dist /usr/share/nginx/html
+COPY nginx/worker.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 DOCKERFILE
-```
 
-### 5.2 构建镜像
-
-```bash
-# 在项目根目录 opencode/ 下执行
-
-# 构建 API Server 镜像
-docker build -f Dockerfile.api -t opencode-api:latest .
-
-# 构建 Worker 镜像
-docker build -f Dockerfile.worker -t opencode-worker:latest .
-
-# 构建 Dashboard 镜像
 docker build -f Dockerfile.dashboard -t opencode-dashboard:latest .
 ```
 
-### 5.3 推送到镜像仓库（可选）
+### 5.3 Worker-per-User 架构说明
 
-```bash
-# 标记镜像（替换为你的镜像仓库地址）
-REGISTRY=registry.example.com/opencode
+在 Docker 模式下（`WORKER_MODE=docker`），Platform 会为每个登录用户动态启动一个 `opencode-worker` 容器：
 
-docker tag opencode-api:latest $REGISTRY/api:latest
-docker tag opencode-worker:latest $REGISTRY/worker:latest
-docker tag opencode-dashboard:latest $REGISTRY/dashboard:latest
+- 用户首次登录时，Platform 调用 `docker run` 启动一个 Worker 容器
+- 容器通过 `--network host` 监听动态分配的端口（4200+）
+- Worker 空闲超过 `WORKER_IDLE_MS`（默认 30 分钟）后自动回收
+- 最大同时在线 Worker 数受 `MAX_WORKERS` 限制（默认 200）
 
-# 推送
-docker push $REGISTRY/api:latest
-docker push $REGISTRY/worker:latest
-docker push $REGISTRY/dashboard:latest
-```
+### 5.4 用 Docker Compose 一键启动
 
-### 5.4 用 Docker Compose 一键启动（本地测试生产配置）
-
-在项目根目录创建 `docker-compose.yml`：
-
-```bash
-cat > docker-compose.yml << 'YAML'
+```yaml
+# docker-compose.yml
 services:
   postgres:
     image: postgres:16-alpine
@@ -433,37 +401,38 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: redis-server --maxmemory-policy noeviction
     ports:
       - "6379:6379"
 
-  api:
-    image: opencode-api:latest
+  pgbouncer:
+    image: edoburu/pgbouncer
+    volumes:
+      - ./docker/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini
+    ports:
+      - "6432:6432"
+    depends_on:
+      - postgres
+
+  platform:
+    image: opencode-platform:latest
     ports:
       - "3100:3100"
     environment:
       ENTERPRISE_MODE: "true"
-      DATABASE_URL: postgres://opencode:opencode@postgres:5432/opencode
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: change-me-to-a-random-string-at-least-32-chars
-      FEISHU_APP_ID: cli_xxx
-      FEISHU_APP_SECRET: xxx
-    depends_on:
-      - postgres
-      - redis
-
-  worker:
-    image: opencode-worker:latest
-    environment:
-      ENTERPRISE_MODE: "true"
-      DATABASE_URL: postgres://opencode:opencode@postgres:5432/opencode
+      DATABASE_URL: postgres://opencode:opencode@pgbouncer:6432/opencode
       REDIS_URL: redis://redis:6379
       JWT_SECRET: change-me-to-a-random-string-at-least-32-chars
       FEISHU_APP_ID: cli_xxx
       FEISHU_APP_SECRET: xxx
       OPENAI_API_KEY: sk-your-key
-      WORKER_CONCURRENCY: "4"
+      WORKER_MODE: docker
+      MAX_WORKERS: "200"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - workers:/data/workers
     depends_on:
-      - postgres
+      - pgbouncer
       - redis
 
   dashboard:
@@ -473,194 +442,81 @@ services:
 
 volumes:
   pgdata:
-YAML
+  workers:
 ```
 
 ```bash
-# 启动全部服务
 docker compose up -d
-
-# 查看日志
-docker compose logs -f api
-docker compose logs -f worker
-
-# 停止
+docker compose logs -f platform
 docker compose down
 ```
 
 ---
 
-## 6. Kubernetes 生产部署
+## 6. 生产部署（nginx + Docker）
 
-### 6.1 创建 Secret
+### 6.1 nginx 反向代理
+
+生产环境使用 nginx 统一入口，动态路由到 Worker：
+
+```
+nginx/worker.conf  ← 已包含在项目中
+```
+
+核心路由：
+- `/` → Dashboard 静态资源
+- `/api/` → Platform Server（认证、管理 API）
+- `/w/{uid}/...` → 动态路由到用户 Worker（通过 auth_request 解析端口）
+- `/ws` → Platform WebSocket（通知、状态推送）
+
+### 6.2 PgBouncer 连接池
+
+Worker-per-User 架构下每个 Worker 都需要连接 PostgreSQL。推荐使用 PgBouncer 做连接池：
+
+```
+docker/pgbouncer.ini  ← 已包含在项目中
+```
+
+配置说明：
+- `pool_mode = transaction` — 事务级别复用，适合短查询
+- `max_client_conn = 2000` — 支持最多 2000 个 Worker 连接
+- `default_pool_size = 50` — 实际到 PostgreSQL 的连接数
+
+Workers 和 Platform 连接 PgBouncer (:6432) 而非直连 PostgreSQL (:5432)。
+
+### 6.3 Worker 生命周期管理
+
+| 参数 | 环境变量 | 默认值 | 说明 |
+|------|----------|--------|------|
+| 运行模式 | `WORKER_MODE` | `process` | `process`=子进程，`docker`=Docker 容器 |
+| 最大 Worker 数 | `MAX_WORKERS` | `200` | 超过后 LRU 淘汰最不活跃的 |
+| 空闲超时 | `WORKER_IDLE_MS` | `1800000` | 30 分钟无活动自动回收 |
+| Worker 基础 URL | `WORKER_BASE_URL` | — | 生产环境填，如 `https://domain.com/w` |
+
+Pool Manager 每 60 秒扫描一次，回收空闲和超量 Worker。
+
+### 6.4 监控
+
+每个 Worker 暴露健康检查端点：
 
 ```bash
-kubectl create secret generic opencode-env \
-  --from-literal=ENTERPRISE_MODE=true \
-  --from-literal=DATABASE_URL=postgres://user:pass@pg-host:5432/opencode \
-  --from-literal=REDIS_URL=redis://redis-host:6379 \
-  --from-literal=JWT_SECRET=your-production-jwt-secret-at-least-32-chars \
-  --from-literal=FEISHU_APP_ID=cli_xxx \
-  --from-literal=FEISHU_APP_SECRET=xxx \
-  --from-literal=OPENAI_API_KEY=sk-xxx
+curl http://localhost:{worker_port}/global/health
 ```
 
-### 6.2 部署 YAML
-
-```yaml
-# api-deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: opencode-api
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: opencode-api
-  template:
-    metadata:
-      labels:
-        app: opencode-api
-    spec:
-      containers:
-        - name: api
-          image: registry.example.com/opencode/api:latest
-          ports:
-            - containerPort: 3100
-          envFrom:
-            - secretRef:
-                name: opencode-env
-          resources:
-            requests: { memory: "256Mi", cpu: "200m" }
-            limits: { memory: "1Gi", cpu: "1000m" }
-          livenessProbe:
-            httpGet: { path: /health, port: 3100 }
-            periodSeconds: 30
-          readinessProbe:
-            httpGet: { path: /health, port: 3100 }
-            periodSeconds: 10
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: opencode-worker
-spec:
-  replicas: 4
-  selector:
-    matchLabels:
-      app: opencode-worker
-  template:
-    metadata:
-      labels:
-        app: opencode-worker
-    spec:
-      containers:
-        - name: worker
-          image: registry.example.com/opencode/worker:latest
-          env:
-            - name: WORKER_CONCURRENCY
-              value: "4"
-          envFrom:
-            - secretRef:
-                name: opencode-env
-          resources:
-            requests: { memory: "512Mi", cpu: "500m" }
-            limits: { memory: "2Gi", cpu: "2000m" }
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: opencode-api
-spec:
-  selector:
-    app: opencode-api
-  ports:
-    - port: 3100
-      targetPort: 3100
-  type: ClusterIP
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: opencode
-  annotations:
-    nginx.ingress.kubernetes.io/websocket-services: "opencode-api"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-spec:
-  rules:
-    - host: opencode.example.com
-      http:
-        paths:
-          - path: /api
-            pathType: Prefix
-            backend:
-              service: { name: opencode-api, port: { number: 3100 } }
-          - path: /ws
-            pathType: Prefix
-            backend:
-              service: { name: opencode-api, port: { number: 3100 } }
-          - path: /
-            pathType: Prefix
-            backend:
-              service: { name: opencode-dashboard, port: { number: 80 } }
-```
+通过 Redis 查看活跃 Worker：
 
 ```bash
-# 部署
-kubectl apply -f api-deployment.yaml
-
-# 查看状态
-kubectl get pods -l app=opencode-api
-kubectl get pods -l app=opencode-worker
-kubectl logs -f deployment/opencode-api
-```
-
-### 6.3 HPA 自动扩容
-
-```yaml
-# hpa.yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: opencode-api-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: opencode-api
-  minReplicas: 2
-  maxReplicas: 8
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target: { type: Utilization, averageUtilization: 70 }
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: opencode-worker-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: opencode-worker
-  minReplicas: 4
-  maxReplicas: 16
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target: { type: Utilization, averageUtilization: 60 }
+redis-cli KEYS "worker:*"
+redis-cli GET "worker:{userId}"
 ```
 
 ---
 
 ## 7. API 路由参考
 
-> 注意：路由前缀是 `/api/`（非 `/api/v1/`），健康检查在 `/health`。
+### Platform API（/api/）
+
+管理层接口，通过 JWT 认证。
 
 ```
 GET  /health                              健康检查
@@ -669,10 +525,8 @@ POST /api/auth/feishu/callback            飞书 OAuth 回调
 POST /api/auth/refresh                    JWT 刷新
 GET  /api/auth/me                         当前用户信息
 
-GET  /api/sessions                        会话列表
-POST /api/sessions                        创建会话
-GET  /api/sessions/:id                    会话消息历史
-DELETE /api/sessions/:id                  删除会话
+GET  /api/worker/connect                  获取用户 Worker URL + 密钥
+GET  /api/worker/resolve?uid=             内部：nginx 解析 Worker 端口
 
 GET  /api/mcp/market                      MCP 市场列表
 POST /api/mcp                             注册新 MCP
@@ -712,36 +566,48 @@ POST   /api/admin/channels/:type/test    测试渠道连接
 POST /api/im/feishu/webhook               飞书事件回调
 POST /api/im/feishu/card-action           飞书卡片按钮回调
 
-WS   /ws?token=JWT                        WebSocket 实时通信
+WS   /ws?token=JWT                        WebSocket 通知推送
+```
+
+### Worker API（直连 Worker）
+
+对话层接口，通过 Worker Secret（Basic Auth）认证。前端登录后从 `/api/worker/connect` 获取 URL 和密钥。
+
+```
+GET  /session/                            会话列表
+POST /session/                            创建会话
+GET  /session/:id/message                 消息历史
+POST /session/:id/prompt_async            发送消息（异步）
+POST /session/:id/abort                   中止生成
+DELETE /session/:id                       删除会话
+GET  /event?password=SECRET               SSE 实时事件流
+GET  /global/health                       Worker 健康检查
 ```
 
 ---
 
-## 8. WebSocket 协议
+## 8. 实时通信协议
 
-### 客户端 → 服务端
+### 8.1 Worker SSE（对话流）
+
+前端通过 Worker 的 `/event` SSE 端点接收实时对话事件。EventSource 自动重连。
+
+常见事件类型：
+| type | 说明 |
+|------|------|
+| `session.prompt.completed` | 对话完成 |
+| `session.prompt.error` | 对话出错 |
+| `session.updated` | 会话状态更新 |
+
+### 8.2 Platform WebSocket（管理通知）
+
+Platform 仍保留 WebSocket 用于管理层通知（MCP 变更、配额警告）。
 
 | type | 字段 | 说明 |
 |------|------|------|
-| `chat` | `session_id`, `message` | 发送用户消息，触发 AI 对话 |
-| `subscribe` | `session_id` | 订阅某个会话的实时推送 |
-| `cancel` | `session_id` | 取消正在进行的生成 |
-| `ping` | — | 心跳（每 30s 发送一次） |
-
-### 服务端 → 客户端
-
-| type | 字段 | 说明 |
-|------|------|------|
-| `ack` | `job_id`, `session_id` | 消息已入队确认 |
-| `text_delta` | `session_id`, `content` | 流式文本增量 |
-| `tool_call` | `session_id`, `tool`, `mcp`, `status` | 工具调用状态（start/done/error） |
-| `reasoning` | `session_id`, `content` | AI 推理过程 |
-| `done` | `session_id`, `usage` | 对话完成 + Token 用量 |
-| `error` | `session_id`, `code`, `message` | 错误（如 quota_exceeded） |
 | `mcp_change` | `added[]`, `removed[]` | MCP 工具列表变更通知 |
 | `quota_warning` | `remaining_pct`, `message` | 配额即将用尽警告 |
-| `cancelled` | `session_id` | 已取消确认 |
-| `pong` | — | 心跳响应 |
+| `ping` / `pong` | — | 心跳 |
 
 ---
 
@@ -752,7 +618,7 @@ OpenCode Core 定义 6 个 hook，Platform 全部实现并注册：
 | Hook | 触发时机 | Platform 实现 |
 |------|----------|---------------|
 | `beforePrompt` | LLM 调用前 | 多级配额检查 + 滑窗限流 |
-| `afterToolResolve` | 工具列表解析后 | RBAC 按用户角色过滤可用工具 |
+| `afterToolResolve` | 工具列表解析后 | 按用户 MCP 授权过滤可用工具 |
 | `onToolCall` | 工具执行前 | 熔断器前置检查（OPEN 则拒绝）+ 调用计数 |
 | `onToolResult` | 工具返回后 | 熔断器成功回报 + 审计日志 |
 | `onTokenUsage` | Token 使用统计 | 配额递增 + 成本计算 + 审计日志 |
@@ -852,7 +718,7 @@ bun run db studio          # 打开 Drizzle Studio（数据库 GUI）
 
 # ============= 测试 =============
 cd opencode/packages/platform
-bun test                   # 运行 24 个测试
+bun test                   # 运行测试
 bun typecheck              # 类型检查
 
 cd opencode/packages/dashboard
@@ -860,24 +726,17 @@ bun typecheck              # 前端类型检查
 bun run build              # 前端构建
 
 # ============= Docker =============
-docker build -f Dockerfile.api -t opencode-api:latest .
-docker build -f Dockerfile.worker -t opencode-worker:latest .
-docker build -f Dockerfile.dashboard -t opencode-dashboard:latest .
+docker build -f Dockerfile.api -t opencode-platform:latest .
+docker build -f packages/platform/worker.Dockerfile -t opencode-worker:latest .
 docker compose up -d       # 一键启动全部
 docker compose logs -f     # 查看日志
 docker compose down        # 停止
 
-# ============= Redis 队列监控 =============
-redis-cli LLEN bull:chat:wait      # 等待中的任务数
-redis-cli LLEN bull:chat:active    # 正在执行的任务数
+# ============= Worker 监控 =============
+redis-cli KEYS "worker:*"         # 查看活跃 Worker
+redis-cli GET "worker:{userId}"   # 查看某用户 Worker 详情
 redis-cli KEYS "circuit:*"        # 查看熔断器状态
 redis-cli KEYS "quota:*"          # 查看配额缓存
-
-# ============= Kubernetes =============
-kubectl get pods -l app=opencode-api
-kubectl logs -f deployment/opencode-api
-kubectl logs -f deployment/opencode-worker
-kubectl top pods -l app=opencode-api
 ```
 
 ---
@@ -888,11 +747,13 @@ kubectl top pods -l app=opencode-api
 |------|--------|
 | API 启动失败 "DATABASE_URL is required" | 检查 `packages/platform/.env` 是否存在，`DATABASE_URL` 格式是否为 `postgres://user:pass@host:5432/dbname` |
 | `db push` 报 "database does not exist" | 需先创建数据库：`docker exec <pg容器名> psql -U <用户名> -d postgres -c "CREATE DATABASE opencode;"` |
-| Worker 启动但不处理任务 | 检查 Redis 是否可达：`redis-cli ping` 应返回 `PONG` |
-| Dashboard 打开白屏 | 检查 API Server 是否在 3100 端口运行，Vite 代理依赖它 |
+| Worker 启动失败 | 检查 Redis 是否可达：`redis-cli ping` 应返回 `PONG`；检查端口是否冲突 |
+| Dashboard 打开白屏 | 检查 Platform Server 是否在 3100 端口运行，Vite 代理依赖它 |
+| 对话无响应 | 检查 Worker 是否启动：`redis-cli KEYS "worker:*"`；检查 Worker 健康：`curl localhost:{port}/global/health` |
 | 飞书登录失败 | 检查 `FEISHU_APP_ID` / `FEISHU_APP_SECRET` 是否正确，飞书应用是否已上架 |
-| 飞书 Bot 不回复 | 1) 检查 Dashboard 设置中渠道是否启用；2) 测试连接是否通过；3) 确认事件回调 URL 公网可达；4) 检查 Worker 日志 |
-| 飞书自动注册不生效 | 确认已开启「免登自动注册」开关；确认飞书应用拥有 `contact:user.base:readonly` 权限 |
+| 飞书 Bot 不回复 | 1) 检查 Dashboard 设置中渠道是否启用；2) 测试连接是否通过；3) 确认事件回调 URL 公网可达 |
+| Worker 数量过多 | 调整 `MAX_WORKERS` 或 `WORKER_IDLE_MS`；检查是否有僵尸 Worker |
+| PostgreSQL 连接过多 | 生产环境务必使用 PgBouncer，配置 `pool_mode = transaction` |
 | 配额检查不生效 | 检查 `quota_config` 表是否有数据，Redis 中 `quota:*` key 是否正常递增 |
 | 工具调用被拒绝 | 检查 Redis `circuit:*` key，确认熔断器是否处于 OPEN 状态 |
 | Docker 构建失败 | 确保在**项目根目录**执行 `docker build`，因为 monorepo 需要完整上下文 |

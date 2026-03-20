@@ -1,6 +1,6 @@
 import * as lark from "@larksuiteoapi/node-sdk"
 import * as identity from "@/auth/identity"
-import * as producer from "@/worker/producer"
+import * as manager from "@/worker-manager/manager"
 import * as channelMod from "@/channel/channel"
 import * as feishuClient from "./client"
 import { database } from "@/db"
@@ -24,8 +24,6 @@ export async function start() {
 
   console.log("[feishu-ws] starting long connection...")
 
-  const client = new lark.Client({ appId: cfg.app_id, appSecret: cfg.app_secret })
-
   wsClient = new lark.WSClient({
     appId: cfg.app_id,
     appSecret: cfg.app_secret,
@@ -36,7 +34,7 @@ export async function start() {
     eventDispatcher: new lark.EventDispatcher({}).register({
       "im.message.receive_v1": async (data: unknown) => {
         try {
-          await handle(data as Record<string, unknown>, client)
+          await handle(data as Record<string, unknown>)
         } catch (e) {
           console.error("[feishu-ws] event handler error:", e)
         }
@@ -49,9 +47,7 @@ export async function start() {
 
 export function stop() {
   if (!wsClient) return
-  try {
-    wsClient = null
-  } catch { /* ignore */ }
+  wsClient = null
   console.log("[feishu-ws] stopped")
 }
 
@@ -60,7 +56,27 @@ export async function restart() {
   await start()
 }
 
-async function handle(data: Record<string, unknown>, _client: lark.Client) {
+async function proxyToWorker(uid: string, text: string): Promise<string> {
+  const worker = await manager.get(uid)
+  const base = `http://localhost:${worker.port}`
+  const hdrs = { "Content-Type": "application/json", Authorization: `Basic ${btoa(`:${worker.secret}`)}` }
+
+  const sessions = await fetch(`${base}/session/`, { headers: hdrs }).then((r) => r.json()) as { id: string }[]
+  const sid = sessions[0]?.id ?? (await fetch(`${base}/session/`, { method: "POST", headers: hdrs, body: JSON.stringify({}) }).then((r) => r.json()) as { id: string }).id
+
+  await fetch(`${base}/session/${sid}/prompt_async`, {
+    method: "POST",
+    headers: hdrs,
+    body: JSON.stringify({ content: text }),
+  })
+
+  await Bun.sleep(3000)
+  const msgs = await fetch(`${base}/session/${sid}/message`, { headers: hdrs }).then((r) => r.json()) as { role: string; content: { text?: string } }[]
+  const last = msgs?.at(-1)
+  return last?.role === "assistant" ? (last.content.text ?? "处理完成") : "处理中，请稍候查看"
+}
+
+async function handle(data: Record<string, unknown>) {
   const event = data as {
     message?: {
       chat_id?: string
@@ -123,14 +139,11 @@ async function handle(data: Record<string, unknown>, _client: lark.Client) {
     }
   }
 
-  await producer.enqueue({
-    user_id: user.internal_id,
-    session_id: "",
-    message: content,
-    source: "feishu",
-    callback: {
-      chat_id: msg.chat_id,
-      message_id: msg.message_id,
-    },
-  })
+  try {
+    const reply = await proxyToWorker(user.internal_id, content)
+    await feishuClient.replyMessage(msg.message_id ?? "", reply)
+  } catch (e) {
+    console.error("[feishu-ws] proxy to worker failed:", e)
+    await feishuClient.replyMessage(msg.message_id ?? "", "处理失败，请稍后重试")
+  }
 }

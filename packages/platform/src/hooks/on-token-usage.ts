@@ -3,6 +3,7 @@ import * as identity from "@/auth/identity"
 import * as quota from "@/billing/quota"
 import * as cost from "@/billing/cost"
 import * as audit from "@/billing/audit"
+import { userId as processUserId } from "./context"
 
 export async function onTokenUsage(input: {
   sessionID: string
@@ -23,12 +24,13 @@ export async function onTokenUsage(input: {
   const inp = input.input + input.cached
   const out = input.output
 
-  if (input.userId) {
-    await quota.increment("user", input.userId, "daily", inp, out, c)
-    await quota.increment("user", input.userId, "monthly", inp, out, c)
+  const uid = input.userId ?? processUserId()
+  if (uid) {
+    await quota.increment("user", uid, "daily", inp, out, c)
+    await quota.increment("user", uid, "monthly", inp, out, c)
 
     const db = database()
-    const user = await identity.byInternalId(db, input.userId)
+    const user = await identity.byInternalId(db, uid)
     if (user) {
       const deptIds = (user.department_ids ?? []) as string[]
       for (const deptId of deptIds) {
@@ -40,7 +42,7 @@ export async function onTokenUsage(input: {
     await quota.increment("global", "", "monthly", inp, out, c)
 
     audit.log({
-      user_id: input.userId,
+      user_id: uid,
       session_id: input.sessionID,
       action: "llm_step",
       model_id: input.model,

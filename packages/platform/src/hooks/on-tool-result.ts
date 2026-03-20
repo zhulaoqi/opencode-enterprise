@@ -1,5 +1,6 @@
 import * as audit from "@/billing/audit"
 import * as circuitBreaker from "@/billing/circuit-breaker"
+import { userId as processUserId } from "./context"
 
 export async function onToolResult(input: {
   sessionID: string
@@ -12,9 +13,10 @@ export async function onToolResult(input: {
   const mcpName = input.tool.split("_")[0] ?? "unknown"
   await circuitBreaker.success(mcpName)
 
-  if (input.userId) {
+  const uid = input.userId ?? processUserId()
+  if (uid) {
     audit.log({
-      user_id: input.userId,
+      user_id: uid,
       session_id: input.sessionID,
       action: "tool_result",
       tools: [

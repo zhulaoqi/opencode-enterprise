@@ -5,7 +5,9 @@ import { api } from "../../lib/api"
 
 type Model = { id: string; name: string; model_id: string; group?: string }
 
-const [models] = createResource(() => api.get<{ models: Model[] }>("/models").then((r) => r.models ?? []))
+const [models] = createResource(() =>
+  api.get<{ models: Model[] }>("/models").then((r) => r.models ?? []).catch(() => [])
+)
 export const [model, setModel] = createSignal("")
 
 function ModelOption(props: { m: Model; active: boolean; onSelect: () => void }) {

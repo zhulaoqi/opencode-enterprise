@@ -3,7 +3,6 @@ import { SessionList } from "../components/chat/SessionList"
 import { MessageList } from "../components/chat/MessageList"
 import { ChatInput } from "../components/chat/ChatInput"
 import { loadSessions, activeId } from "../stores/chat"
-import { connect } from "../lib/ws"
 import { api } from "../lib/api"
 
 type McpItem = { id: string; name: string; authorized?: boolean }
@@ -16,7 +15,6 @@ const [mcps] = createResource(
 export default function Chat() {
   onMount(() => {
     loadSessions()
-    connect()
   })
 
   return (

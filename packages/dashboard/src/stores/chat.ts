@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js"
-import { api } from "../lib/api"
-import { on as wsOn, send as wsSend } from "../lib/ws"
+import { request } from "../lib/worker"
+import { on as sseOn } from "../lib/stream"
 
 export type Session = {
   id: string
@@ -25,26 +25,51 @@ const [isStreaming, setIsStreaming] = createSignal(false)
 export { sessions, setSessions, activeId, setActiveId, messages, setMessages, streaming, isStreaming }
 
 export async function loadSessions() {
-  const rows = await api.get<Session[]>("/sessions")
-  setSessions(Array.isArray(rows) ? rows : [])
+  try {
+    const rows = await request<Session[]>("/session/")
+    setSessions(Array.isArray(rows) ? rows : [])
+  } catch (e) {
+    console.warn("[chat] loadSessions failed:", e)
+    setSessions([])
+  }
 }
 
 export async function loadMessages(id: string) {
   setActiveId(id)
-  wsSend({ type: "subscribe", session_id: id })
-  const rows = await api.get<Message[]>("/sessions/" + id)
-  setMessages(Array.isArray(rows) ? rows : [])
+  try {
+    const rows = await request<Message[]>(`/session/${id}/message`)
+    setMessages(Array.isArray(rows) ? rows : [])
+  } catch (e) {
+    console.warn("[chat] loadMessages failed:", e)
+  }
+}
+
+export async function createSession(): Promise<string> {
+  const sess = await request<{ id: string }>("/session/", { method: "POST", body: JSON.stringify({}) })
+  await loadSessions()
+  return sess.id
+}
+
+export async function deleteSession(id: string) {
+  await request<void>(`/session/${id}`, { method: "DELETE" })
+  if (activeId() === id) {
+    setActiveId("")
+    setMessages([])
+  }
+  await loadSessions()
 }
 
 let streamTimeout: ReturnType<typeof setTimeout>
 
-export function sendMessage(text: string, model?: string) {
-  const id = activeId()
-  if (!id) return
+export async function sendMessage(text: string, _model?: string) {
+  let id = activeId()
+  if (!id) {
+    id = await createSession()
+    setActiveId(id)
+  }
   if (isStreaming()) {
     setIsStreaming(false)
     setStreaming("")
-    clearInterval(pollTimer)
   }
   setIsStreaming(true)
   setStreaming("")
@@ -65,11 +90,34 @@ export function sendMessage(text: string, model?: string) {
       created_at: new Date().toISOString(),
     },
   ])
-  wsSend({ type: "chat", session_id: id, message: text, ...(model && { model_id: model }) })
+  try {
+    await request<void>(`/session/${id}/prompt_async`, {
+      method: "POST",
+      body: JSON.stringify({ content: text }),
+    })
+    startPolling()
+  } catch (e) {
+    setIsStreaming(false)
+    setStreaming("")
+    clearTimeout(streamTimeout)
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: { text: `⚠️ ${(e as Error).message}` },
+        created_at: new Date().toISOString(),
+      },
+    ])
+  }
 }
 
-export function cancelStream() {
-  wsSend({ type: "cancel", session_id: activeId() })
+export async function cancelStream() {
+  const id = activeId()
+  if (!id) return
+  try {
+    await request<void>(`/session/${id}/abort`, { method: "POST" })
+  } catch {}
   setIsStreaming(false)
   setStreaming("")
 }
@@ -82,136 +130,58 @@ function startPolling() {
   let count = 0
   pollTimer = setInterval(async () => {
     count++
-    if (count > 30) {
+    if (count > 60) {
       clearInterval(pollTimer)
       setIsStreaming(false)
       return
     }
-    const rows = await api.get<Message[]>("/sessions/" + id)
-    setMessages(Array.isArray(rows) ? rows : [])
-    const last = rows?.at(-1)
-    if (last?.role === "assistant") {
-      clearInterval(pollTimer)
-      setIsStreaming(false)
-    }
+    try {
+      const rows = await request<Message[]>(`/session/${id}/message`)
+      setMessages(Array.isArray(rows) ? rows : [])
+      const last = rows?.at(-1)
+      if (last?.role === "assistant") {
+        clearInterval(pollTimer)
+        clearTimeout(streamTimeout)
+        setIsStreaming(false)
+        setStreaming("")
+      }
+    } catch {}
   }, 2000)
 }
 
-wsOn("ack", () => {
-  startPolling()
-})
-
-wsOn("text_delta", (msg) => {
-  const payload = msg as { session_id?: string; content?: string }
-  if (payload.session_id === activeId() && payload.content) {
-    setStreaming((prev) => prev + payload.content)
-  }
-})
-
-wsOn("reasoning", (msg) => {
-  const payload = msg as { session_id?: string; content?: string }
-  if (payload.session_id !== activeId()) return
-  setMessages((prev) => {
-    const last = prev.at(-1)
-    if (last?.role === "assistant" && last.content.reasoning !== undefined) {
-      return [...prev.slice(0, -1), { ...last, content: { ...last.content, reasoning: (last.content.reasoning ?? "") + (payload.content ?? "") } }]
-    }
-    return prev
-  })
-})
-
-wsOn("tool_call", (msg) => {
-  const payload = msg as { session_id?: string; tool?: string; mcp?: string; status?: string; input?: unknown; output?: unknown; duration_ms?: number }
-  if (payload.session_id !== activeId()) return
-  setMessages((prev) => {
-    const last = prev.at(-1)
-    if (last?.role === "assistant") {
-      const tools = [...(last.content.tools ?? []) as Record<string, unknown>[], { name: payload.tool, mcp: payload.mcp, status: payload.status, input: payload.input, output: payload.output, duration_ms: payload.duration_ms }]
-      return [...prev.slice(0, -1), { ...last, content: { ...last.content, tools } }]
-    }
-    return prev
-  })
-})
-
-wsOn("done", (msg) => {
+sseOn("session.prompt.completed", (msg) => {
   clearInterval(pollTimer)
   clearTimeout(streamTimeout)
   setIsStreaming(false)
-  const payload = msg as { session_id?: string; text?: string }
-  if (payload.session_id !== activeId()) return
-  const buf = streaming()
-  if (buf) {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: { text: buf },
-        created_at: new Date().toISOString(),
-      },
-    ])
-    setStreaming("")
-  } else if (payload.text) {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: { text: payload.text },
-        created_at: new Date().toISOString(),
-      },
-    ])
-  } else {
+  const payload = msg as { sessionID?: string }
+  if (payload.sessionID === activeId()) {
     loadMessages(activeId())
   }
+  setStreaming("")
 })
 
-wsOn("error", (msg) => {
+sseOn("session.prompt.error", (msg) => {
   clearInterval(pollTimer)
   clearTimeout(streamTimeout)
   setIsStreaming(false)
   setStreaming("")
-  const payload = msg as { session_id?: string; message?: string }
-  if (payload.session_id === activeId() && payload.message) {
+  const payload = msg as { sessionID?: string; error?: string }
+  if (payload.sessionID === activeId() && payload.error) {
     setMessages((prev) => [
       ...prev,
       {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: { text: `⚠️ ${payload.message}` },
+        content: { text: `⚠️ ${payload.error}` },
         created_at: new Date().toISOString(),
       },
     ])
   }
 })
 
-wsOn("quota_warning", (msg) => {
-  const payload = msg as { remaining_pct?: number; message?: string }
-  if (payload.message) {
-    import("../stores/notification").then((m) => m.notify("warning", payload.message!))
+sseOn("session.updated", (msg) => {
+  const payload = msg as { id?: string }
+  if (payload.id === activeId()) {
+    loadMessages(activeId())
   }
-})
-
-wsOn("mcp_change", (msg) => {
-  const payload = msg as { added?: string[]; removed?: string[] }
-  const parts: string[] = []
-  if (payload.added?.length) parts.push(`新增: ${payload.added.join(", ")}`)
-  if (payload.removed?.length) parts.push(`移除: ${payload.removed.join(", ")}`)
-  if (parts.length) {
-    import("../stores/notification").then((m) => m.notify("info", `MCP 工具变更 — ${parts.join("; ")}`))
-  }
-})
-
-wsOn("_disconnect", () => {
-  clearInterval(pollTimer)
-  clearTimeout(streamTimeout)
-  if (isStreaming()) {
-    setIsStreaming(false)
-    setStreaming("")
-  }
-})
-
-wsOn("_reconnect", () => {
-  const id = activeId()
-  if (id) wsSend({ type: "subscribe", session_id: id })
 })

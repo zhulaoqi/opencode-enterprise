@@ -27,6 +27,8 @@ export function logout() {
   localStorage.removeItem("token")
   setToken("")
   setUser(null)
+  import("../lib/stream").then((m) => m.close())
+  import("../lib/worker").then((m) => m.reset())
 }
 
 export function isLoggedIn() {

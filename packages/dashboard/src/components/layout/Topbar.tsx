@@ -3,7 +3,7 @@ import { Bell, Sun, Moon, LogOut, Settings } from "lucide-solid"
 import { user, logout } from "../../stores/auth"
 import { Avatar } from "../ui/Avatar"
 import { setTheme, resolved } from "../../stores/theme"
-import { connected } from "../../lib/ws"
+import { ready as connected } from "../../lib/worker"
 
 export function Topbar() {
   const [showUserMenu, setShowUserMenu] = createSignal(false)

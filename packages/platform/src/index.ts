@@ -8,10 +8,9 @@ import { FeishuAdapter } from "./im-adapter/feishu/adapter"
 import * as adapterRegistry from "./im-adapter/registry"
 import * as feishuWs from "./im-adapter/feishu/ws-receiver"
 import { register as registerHooks } from "./hooks/register"
-import { start as startWorker } from "./worker/consumer"
+import * as pool from "./worker-manager/pool"
 
 const port = Number(process.env.PORT ?? 3100)
-const concurrency = Number(process.env.WORKER_CONCURRENCY ?? 4)
 
 registerHooks()
 adapterRegistry.register(new FeishuAdapter())
@@ -22,10 +21,9 @@ health.start()
 sync.start()
 audit.startFlush()
 
-const worker = startWorker(concurrency)
 ws.startSweeper()
+pool.start()
 feishuWs.start().catch((e) => console.warn("[feishu-ws] auto-start skipped:", e))
-console.log(`[worker] started with concurrency=${concurrency}`)
 
 function fetch(req: Request, server: { upgrade: (r: Request, opts?: { data?: unknown }) => boolean }) {
   const url = new URL(req.url)

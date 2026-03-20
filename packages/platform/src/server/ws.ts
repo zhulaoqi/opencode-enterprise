@@ -1,7 +1,6 @@
 import type { ServerWebSocket } from "bun"
 import { verify, type JwtPayload } from "@/auth/jwt"
 import { env } from "@/env"
-import * as producer from "@/worker/producer"
 
 // ---------------------------------------------------------------------------
 // Types & config
@@ -99,25 +98,6 @@ export const handlers = {
     try { msg = JSON.parse(typeof raw === "string" ? raw : raw.toString()) } catch { return }
 
     switch (msg.type) {
-      case "chat": {
-        const sid = msg.session_id ?? ""
-        if (!msg.message?.trim()) { send(ws, { type: "error", code: "empty_message", message: "消息不能为空" }); return }
-        try {
-          const jobId = await producer.enqueue({
-            user_id: user.sub,
-            session_id: sid,
-            message: msg.message,
-            source: "web",
-            model_id: msg.model_id,
-            callback: { ws_id: user.sub },
-          })
-          subscribe(ws, sid)
-          send(ws, { type: "ack", job_id: jobId, session_id: sid })
-        } catch (err) {
-          send(ws, { type: "error", code: "enqueue_failed", message: err instanceof Error ? err.message : "入队失败" })
-        }
-        break
-      }
       case "subscribe": {
         if (msg.session_id) subscribe(ws, msg.session_id)
         break
