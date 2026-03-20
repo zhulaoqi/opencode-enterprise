@@ -2,13 +2,15 @@ import { createSignal } from "solid-js"
 import { api } from "./api"
 
 export type Status = "disconnected" | "connecting" | "ready"
+export type Reason = "none" | "worker_down" | "platform_maintenance" | "platform_unreachable"
 
 const BACKOFF = [2000, 4000, 8000, 16000, 30000]
 const MAX_RETRIES = 8
 
 const [status, setStatus] = createSignal<Status>("disconnected")
 const [attempts, setAttempts] = createSignal(0)
-export { status, attempts }
+const [reason, setReason] = createSignal<Reason>("none")
+export { status, attempts, reason }
 
 export const ready = () => status() === "ready"
 export const exhausted = () => attempts() >= MAX_RETRIES
@@ -19,6 +21,7 @@ let timer: ReturnType<typeof setTimeout> | null = null
 export function markReady() {
   setStatus("ready")
   setAttempts(0)
+  setReason("none")
   if (timer) { clearTimeout(timer); timer = null }
 }
 
@@ -57,19 +60,39 @@ export async function connect() {
   if (inflight) return inflight
   setStatus("connecting")
   setAttempts((n) => n + 1)
-  inflight = api
-    .get<{ url: string }>("/worker/connect")
-    .then(async () => {
+  inflight = (async () => {
+    try {
+      const res = await fetch("/api/worker/connect", {
+        headers: { ...api.authHeader() },
+      })
+      if (res.status === 502) {
+        setReason("worker_down")
+        setStatus("disconnected")
+        schedule()
+        return
+      }
+      if (res.status === 503) {
+        setReason("platform_maintenance")
+        setStatus("disconnected")
+        schedule()
+        return
+      }
+      if (!res.ok) {
+        setReason("worker_down")
+        setStatus("disconnected")
+        schedule()
+        return
+      }
       console.log("[worker] connect ok, opening SSE...")
       const { connect: sseConnect } = await import("./stream")
       sseConnect()
-    })
-    .catch((e) => {
-      console.warn("[worker] connect failed:", e)
+    } catch {
+      setReason("platform_unreachable")
       setStatus("disconnected")
       schedule()
-    })
-    .finally(() => { inflight = null })
+    }
+  })()
+  inflight = inflight.finally(() => { inflight = null })
   return inflight
 }
 
@@ -92,11 +115,19 @@ export async function request<T>(path: string, opts?: RequestInit): Promise<T> {
       },
     })
   } catch {
+    setReason("platform_unreachable")
     reset()
     schedule()
     throw new Error("Worker unavailable, reconnecting...")
   }
-  if (res.status === 502 || res.status === 503) {
+  if (res.status === 502) {
+    setReason("worker_down")
+    reset()
+    schedule()
+    throw new Error("Worker unavailable, reconnecting...")
+  }
+  if (res.status === 503) {
+    setReason("platform_maintenance")
     reset()
     schedule()
     throw new Error("Worker unavailable, reconnecting...")

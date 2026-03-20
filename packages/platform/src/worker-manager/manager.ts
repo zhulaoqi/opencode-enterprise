@@ -1,5 +1,6 @@
 import * as registry from "./registry"
 import { serialize } from "./config"
+import { redis } from "@/redis"
 import path from "path"
 
 const ROOT = path.resolve(new URL("../../../..", import.meta.url).pathname)
@@ -45,9 +46,10 @@ async function spawnProcess(uid: string, port: number, secret: string, config: s
       WORKER_SECRET: secret,
       WORKER_CONFIG: config,
     },
-    stdout: "inherit",
-    stderr: "inherit",
+    stdout: "ignore",
+    stderr: "ignore",
   })
+  proc.unref()
   return { pid: proc.pid, container: "" }
 }
 
@@ -111,9 +113,22 @@ export async function recover() {
     if (await healthy(entry.port)) {
       console.log(`[worker-manager] recovered uid=${uid} port=${entry.port}`)
     } else {
+      if (entry.pid) {
+        try { process.kill(entry.pid, "SIGTERM") } catch {}
+      }
       await registry.del(uid)
       console.log(`[worker-manager] cleaned stale uid=${uid}`)
     }
+  }
+  const tombstones = await redis().keys("worker:tombstone:*")
+  for (const key of tombstones) {
+    const raw = await redis().get(key)
+    if (raw) {
+      const data = JSON.parse(raw)
+      const uid = key.slice("worker:tombstone:".length)
+      console.log(`[worker-manager] tombstone uid=${uid} reason=${data.reason} ts=${new Date(data.ts).toISOString()}`)
+    }
+    await redis().del(key)
   }
 }
 

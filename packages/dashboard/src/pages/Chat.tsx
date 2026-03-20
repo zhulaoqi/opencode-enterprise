@@ -4,7 +4,7 @@ import { MessageList } from "../components/chat/MessageList"
 import { ChatInput } from "../components/chat/ChatInput"
 import { loadSessions, activeId } from "../stores/chat"
 import { api } from "../lib/api"
-import { status, exhausted, attempts, retryNow } from "../lib/worker"
+import { status, exhausted, attempts, retryNow, reason } from "../lib/worker"
 import { Loader, WifiOff, RefreshCw } from "lucide-solid"
 
 type McpItem = { id: string; name: string; authorized?: boolean }
@@ -64,7 +64,10 @@ export default function Chat() {
               <>
                 <WifiOff size={24} class="text-[var(--color-error)]" />
                 <p class="text-sm font-medium text-[var(--color-text-primary)]">连接失败</p>
-                <p class="text-xs text-[var(--color-text-muted)]">已尝试 {attempts()} 次，工作区可能暂时不可用</p>
+                <p class="text-xs text-[var(--color-text-muted)]">
+                  {reason() === "platform_unreachable" ? "平台暂不可用" : reason() === "platform_maintenance" ? "平台维护中" : "工作节点异常"}
+                  ，已尝试 {attempts()} 次
+                </p>
                 <button
                   class="mt-2 flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)] bg-[var(--color-primary)] text-[var(--color-on-primary)] text-sm font-medium hover:bg-[var(--color-primary-hover)] transition-colors"
                   onClick={retryNow}
@@ -76,7 +79,9 @@ export default function Chat() {
             ) : (
               <>
                 <Loader size={24} class="animate-spin text-amber-500" />
-                <p class="text-sm font-medium text-[var(--color-text-primary)]">连接已断开，正在重连...</p>
+                <p class="text-sm font-medium text-[var(--color-text-primary)]">
+                  {reason() === "platform_unreachable" ? "平台暂不可用，将自动重连" : reason() === "platform_maintenance" ? "平台维护中，请稍候..." : reason() === "worker_down" ? "工作节点异常，正在恢复..." : "连接已断开，正在重连..."}
+                </p>
                 <p class="text-xs text-[var(--color-text-muted)]">第 {attempts()} 次尝试</p>
               </>
             )}

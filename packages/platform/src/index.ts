@@ -10,6 +10,8 @@ import * as feishuWs from "./im-adapter/feishu/ws-receiver"
 import { register as registerHooks } from "./hooks/register"
 import * as pool from "./worker-manager/pool"
 import * as manager from "./worker-manager/manager"
+import * as patrol from "./worker-manager/patrol"
+import { close as closeRedis } from "./redis"
 
 const port = Number(process.env.PORT ?? 3100)
 
@@ -25,7 +27,18 @@ audit.startFlush()
 ws.startSweeper()
 pool.start()
 manager.recover().catch((e) => console.warn("[worker-manager] recover failed:", e))
+patrol.start()
 feishuWs.start().catch((e) => console.warn("[feishu-ws] auto-start skipped:", e))
+
+async function shutdown() {
+  console.log("[platform] shutting down gracefully...")
+  patrol.stop()
+  await closeRedis()
+  process.exit(0)
+}
+
+process.on("SIGTERM", shutdown)
+process.on("SIGINT", shutdown)
 
 function fetch(req: Request, server: { upgrade: (r: Request, opts?: { data?: unknown }) => boolean }) {
   const url = new URL(req.url)
