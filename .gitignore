@@ -25,6 +25,7 @@ target
 
 # Local dev files
 opencode-dev
+.workers
 logs/
 *.bun-build
 tsconfig.tsbuildinfo

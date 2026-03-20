@@ -1,7 +1,8 @@
 import * as registry from "./registry"
 import { serialize } from "./config"
-import os from "os"
 import path from "path"
+
+const ROOT = path.resolve(new URL("../../../..", import.meta.url).pathname)
 
 const HEALTH_TIMEOUT = 5000
 const SPAWN_TIMEOUT = 30000
@@ -34,7 +35,7 @@ async function ready(port: number, timeout = SPAWN_TIMEOUT): Promise<void> {
 }
 
 async function spawnProcess(uid: string, port: number, secret: string, config: string) {
-  const dir = path.join(process.env.WORKER_DATA ?? os.tmpdir(), "opencode-workers", uid)
+  const dir = path.join(process.env.WORKER_DATA ?? path.join(ROOT, ".workers"), uid)
   const proc = Bun.spawn(["bun", "run", BOOTSTRAP], {
     env: {
       ...process.env,
