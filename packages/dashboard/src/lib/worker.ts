@@ -7,18 +7,28 @@ const [ready, setReady] = createSignal(false)
 
 export { url, ready }
 
+let inflight: Promise<void> | null = null
+
 export async function connect() {
-  const res = await api.get<{ url: string; token: string }>("/worker/connect")
-  setUrl(res.url)
-  setSecret(res.token)
-  setReady(true)
-  console.log("[worker] connected to", res.url)
+  if (ready()) return
+  if (inflight) return inflight
+  inflight = api
+    .get<{ url: string; token: string }>("/worker/connect")
+    .then((res) => {
+      setUrl(res.url)
+      setSecret(res.token)
+      setReady(true)
+      console.log("[worker] connected to", res.url)
+    })
+    .finally(() => { inflight = null })
+  return inflight
 }
 
 export function reset() {
   setUrl("")
   setSecret("")
   setReady(false)
+  inflight = null
 }
 
 function headers(): HeadersInit {
@@ -28,6 +38,7 @@ function headers(): HeadersInit {
 }
 
 export async function request<T>(path: string, opts?: RequestInit): Promise<T> {
+  if (!ready()) await connect()
   const base = url()
   if (!base) throw new Error("Worker not connected")
   const res = await fetch(`${base}${path}`, {

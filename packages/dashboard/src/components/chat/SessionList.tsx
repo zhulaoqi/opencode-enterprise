@@ -1,8 +1,7 @@
 import { For, createSignal } from "solid-js"
 import { Plus, Search, MoreVertical } from "lucide-solid"
-import { api } from "../../lib/api"
 import type { Session } from "../../stores/chat"
-import { sessions, setSessions, activeId, setActiveId, loadSessions, loadMessages } from "../../stores/chat"
+import { sessions, setSessions, activeId, setActiveId, loadSessions, loadMessages, createSession } from "../../stores/chat"
 import { Dropdown } from "../ui/Dropdown"
 import { notify } from "../../stores/notification"
 
@@ -13,14 +12,17 @@ export function SessionList() {
 
   const filtered = () => {
     const s = q().toLowerCase()
-    return s ? sessions().filter((x) => (x.title ?? "").toLowerCase().includes(s)) : sessions()
+    return s ? sessions().filter((x) => x.title.toLowerCase().includes(s)) : sessions()
   }
 
   const handleNew = async () => {
-    const row = await api.post<Session>("/sessions", { title: "新对话" })
-    setSessions((prev) => [row, ...prev])
-    setActiveId(row.id)
-    loadMessages(row.id)
+    try {
+      const id = await createSession()
+      setActiveId(id)
+      loadMessages(id)
+    } catch (e) {
+      notify("error", String(e))
+    }
   }
 
   const handleSelect = (id: string) => {
@@ -30,27 +32,21 @@ export function SessionList() {
 
   const handleRename = (s: Session) => {
     setEditing(s.id)
-    setEditTitle(s.title ?? "新对话")
+    setEditTitle(s.title || "新对话")
   }
 
   const submitRename = async (id: string) => {
     const t = editTitle().trim()
     setEditing(null)
     if (!t) return
-    try {
-      const row = await api.put<Session>(`/sessions/${id}`, { title: t })
-      setSessions((prev) => prev.map((x) => (x.id === id ? { ...x, title: row.title } : x)))
-      notify("success", "已重命名")
-    } catch (e) {
-      notify("error", String(e))
-    }
+    setSessions((prev) => prev.map((x) => (x.id === id ? { ...x, title: t } : x)))
+    notify("success", "已重命名")
   }
 
   const handleDelete = async (id: string) => {
     try {
-      await api.del(`/sessions/${id}`)
-      setSessions((prev) => prev.filter((x) => x.id !== id))
-      if (activeId() === id) setActiveId("")
+      const { deleteSession } = await import("../../stores/chat")
+      await deleteSession(id)
       notify("success", "已删除")
     } catch (e) {
       notify("error", String(e))
@@ -102,7 +98,7 @@ export function SessionList() {
                     {s.title ?? "新对话"}
                   </p>
                   <p class="text-xs text-[var(--color-text-muted)] truncate">
-                    {new Date(s.updated_at).toLocaleDateString("zh-CN")}
+                    {s.time?.updated ? new Date(s.time.updated).toLocaleDateString("zh-CN") : ""}
                   </p>
                 </button>
               )}

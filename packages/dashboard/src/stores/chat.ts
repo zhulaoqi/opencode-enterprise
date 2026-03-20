@@ -4,16 +4,17 @@ import { on as sseOn } from "../lib/stream"
 
 export type Session = {
   id: string
-  title: string | null
-  updated_at: string
-  created_at: string
+  title: string
+  time: { created: number; updated: number }
 }
 
 export type Message = {
   id: string
   role: string
-  content: { text?: string; tools?: unknown[]; reasoning?: string; reasoning_duration?: number }
-  created_at: string
+  time: number
+  text: string
+  reasoning?: string
+  tokens?: { input: number; output: number }
 }
 
 const [sessions, setSessions] = createSignal<Session[]>([])
@@ -26,19 +27,44 @@ export { sessions, setSessions, activeId, setActiveId, messages, setMessages, st
 
 export async function loadSessions() {
   try {
-    const rows = await request<Session[]>("/session/")
-    setSessions(Array.isArray(rows) ? rows : [])
+    const raw = await request<any[]>("/session/")
+    const rows: Session[] = (Array.isArray(raw) ? raw : []).map((s) => ({
+      id: s.id,
+      title: s.title || "新对话",
+      time: { created: s.time?.created ?? 0, updated: s.time?.updated ?? 0 },
+    }))
+    setSessions(rows)
   } catch (e) {
     console.warn("[chat] loadSessions failed:", e)
     setSessions([])
   }
 }
 
+function flatten(raw: any[]): Message[] {
+  return (Array.isArray(raw) ? raw : []).map((m) => {
+    const info = m.info ?? m
+    const parts: any[] = m.parts ?? []
+    const text = parts
+      .filter((p: any) => p.type === "text")
+      .map((p: any) => p.text ?? "")
+      .join("\n")
+    const reasoning = parts.find((p: any) => p.type === "reasoning")?.text
+    return {
+      id: info.id,
+      role: info.role,
+      time: info.time?.created ?? 0,
+      text,
+      reasoning,
+      tokens: info.tokens,
+    }
+  })
+}
+
 export async function loadMessages(id: string) {
   setActiveId(id)
   try {
-    const rows = await request<Message[]>(`/session/${id}/message`)
-    setMessages(Array.isArray(rows) ? rows : [])
+    const raw = await request<any[]>(`/session/${id}/message`)
+    setMessages(flatten(raw))
   } catch (e) {
     console.warn("[chat] loadMessages failed:", e)
   }
@@ -86,14 +112,14 @@ export async function sendMessage(text: string, _model?: string) {
     {
       id: crypto.randomUUID(),
       role: "user",
-      content: { text },
-      created_at: new Date().toISOString(),
+      time: Date.now(),
+      text,
     },
   ])
   try {
     await request<void>(`/session/${id}/prompt_async`, {
       method: "POST",
-      body: JSON.stringify({ content: text }),
+      body: JSON.stringify({ parts: [{ type: "text", text }] }),
     })
     startPolling()
   } catch (e) {
@@ -105,8 +131,8 @@ export async function sendMessage(text: string, _model?: string) {
       {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: { text: `⚠️ ${(e as Error).message}` },
-        created_at: new Date().toISOString(),
+        time: Date.now(),
+        text: `⚠️ ${(e as Error).message}`,
       },
     ])
   }
@@ -136,9 +162,10 @@ function startPolling() {
       return
     }
     try {
-      const rows = await request<Message[]>(`/session/${id}/message`)
-      setMessages(Array.isArray(rows) ? rows : [])
-      const last = rows?.at(-1)
+      const raw = await request<any[]>(`/session/${id}/message`)
+      const msgs = flatten(raw)
+      setMessages(msgs)
+      const last = msgs.at(-1)
       if (last?.role === "assistant") {
         clearInterval(pollTimer)
         clearTimeout(streamTimeout)
@@ -172,8 +199,8 @@ sseOn("session.prompt.error", (msg) => {
       {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: { text: `⚠️ ${payload.error}` },
-        created_at: new Date().toISOString(),
+        time: Date.now(),
+        text: `⚠️ ${payload.error}`,
       },
     ])
   }

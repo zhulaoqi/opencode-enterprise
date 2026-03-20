@@ -5,6 +5,7 @@ const HEALTH_TIMEOUT = 5000
 const SPAWN_TIMEOUT = 30000
 const BOOTSTRAP = new URL("./bootstrap.ts", import.meta.url).pathname
 const MODE = process.env.WORKER_MODE ?? "process"
+const pending = new Map<string, Promise<Worker>>()
 
 type Worker = { port: number; secret: string; container: string }
 
@@ -94,7 +95,11 @@ export async function get(uid: string): Promise<Worker> {
     return { port: existing.port, secret: existing.secret, container: existing.container }
   }
   if (existing) await registry.del(uid)
-  return spawn(uid)
+  const inflight = pending.get(uid)
+  if (inflight) return inflight
+  const p = spawn(uid).finally(() => pending.delete(uid))
+  pending.set(uid, p)
+  return p
 }
 
 export async function stop(uid: string) {

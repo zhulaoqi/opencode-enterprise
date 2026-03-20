@@ -11,7 +11,7 @@ export { streaming }
 
 export function connect() {
   close()
-  const href = sseUrl("/event")
+  const href = sseUrl("/global/event")
   source = new EventSource(href)
 
   source.onopen = () => {

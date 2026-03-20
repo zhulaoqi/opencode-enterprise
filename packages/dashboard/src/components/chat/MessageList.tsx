@@ -9,29 +9,7 @@ import type { Message } from "../../stores/chat"
 
 function MsgRow(props: { msg: Message }) {
   const m = props.msg
-  const content = m.content as {
-    text?: string
-    tools?: { name: string; mcp?: string; status: string; duration_ms?: number; input?: unknown; output?: unknown }[]
-    reasoning?: string
-    reasoning_duration?: number
-    approval?: { action: string; initiator: string; risk?: "low" | "medium" | "high" }
-  }
-  if (content?.approval) {
-    return (
-      <ApprovalCard
-        action={content.approval.action}
-        initiator={content.approval.initiator}
-        risk={content.approval.risk}
-        onApprove={() => {}}
-        onReject={() => {}}
-      />
-    )
-  }
-  if (m.role === "tool" || content?.tools?.length) {
-    const t = content?.tools?.[0]
-    if (t) return <ToolCallCard name={t.name} mcp={t.mcp} status={t.status as "executing" | "success" | "error"} duration={t.duration_ms} input={t.input} output={t.output} />
-  }
-  if (content?.reasoning) return <ReasoningBlock text={content.reasoning} duration={content.reasoning_duration} />
+  if (m.reasoning) return <ReasoningBlock text={m.reasoning} duration={undefined} />
   return <MessageBubble msg={m} />
 }
 

@@ -9,8 +9,8 @@ type Props = {
 export function MessageBubble(props: Props) {
   const m = () => props.msg
   const isUser = () => m().role === "user"
-  const text = () => (typeof m().content === "object" && m().content?.text ? m().content.text : String(m().content ?? ""))
-  const html = () => marked.parse(text() || "") as string
+  const text = () => m().text || ""
+  const html = () => marked.parse(text()) as string
 
   return (
     <div class={`group flex ${isUser() ? "justify-end" : "justify-start"} mb-4`}>
@@ -26,7 +26,7 @@ export function MessageBubble(props: Props) {
           : <div class="markdown-body text-sm break-words" innerHTML={html()} />
         }
         <p class="text-xs text-[var(--color-text-muted)] mt-2">
-          {new Date(m().created_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
+          {m().time ? new Date(m().time).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : ""}
         </p>
         {!isUser() && (
           <div class="hidden group-hover:flex flex-row gap-1 mt-2 -mb-1">

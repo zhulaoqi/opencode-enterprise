@@ -13,8 +13,12 @@ async function boot() {
       })
       if (res.ok) {
         setUser(await res.json())
-        await worker.connect()
-        stream.connect()
+        try {
+          await worker.connect()
+          stream.connect()
+        } catch (e) {
+          console.warn("[boot] worker connect failed, will retry on interaction:", e)
+        }
       } else {
         logout()
       }
